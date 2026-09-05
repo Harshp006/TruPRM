@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
 import {
   fetchSalaryStructure,
   updateSalaryStructure,
@@ -88,6 +89,39 @@ export default function SalaryStructureDetail() {
 
   const [ruleFormError, setRuleFormError] = useState<string>('');
   const [isSubmittingRule, setIsSubmittingRule] = useState<boolean>(false);
+
+  // Salary Rules Search & Filter State
+  const [ruleSearch, setRuleSearch] = useState<string>('');
+  const [ruleCatFilter, setRuleCatFilter] = useState<string>('ALL');
+  const [ruleCalcFilter, setRuleCalcFilter] = useState<string>('ALL');
+  const [ruleStatusFilter, setRuleStatusFilter] = useState<string>('ALL');
+
+  const filteredRules = useMemo(() => {
+    if (!structure?.rules) return [];
+    return structure.rules.filter((r) => {
+      const q = ruleSearch.toLowerCase().trim();
+      const matchesSearch = !q || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
+      const matchesCat = ruleCatFilter === 'ALL' || r.category === ruleCatFilter;
+      const matchesCalc = ruleCalcFilter === 'ALL' || r.calculationType === ruleCalcFilter;
+      const matchesStatus = ruleStatusFilter === 'ALL' || r.status === ruleStatusFilter;
+      return matchesSearch && matchesCat && matchesCalc && matchesStatus;
+    });
+  }, [structure, ruleSearch, ruleCatFilter, ruleCalcFilter, ruleStatusFilter]);
+
+  const activeRuleFilterChips = useMemo(() => {
+    const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
+    if (ruleCatFilter !== 'ALL') chips.push({ label: 'Category', value: ruleCatFilter, onClear: () => setRuleCatFilter('ALL') });
+    if (ruleCalcFilter !== 'ALL') chips.push({ label: 'Type', value: ruleCalcFilter, onClear: () => setRuleCalcFilter('ALL') });
+    if (ruleStatusFilter !== 'ALL') chips.push({ label: 'Status', value: ruleStatusFilter, onClear: () => setRuleStatusFilter('ALL') });
+    return chips;
+  }, [ruleCatFilter, ruleCalcFilter, ruleStatusFilter]);
+
+  const handleClearRuleFilters = () => {
+    setRuleSearch('');
+    setRuleCatFilter('ALL');
+    setRuleCalcFilter('ALL');
+    setRuleStatusFilter('ALL');
+  };
 
   const loadData = async () => {
     if (!id) return;
@@ -626,7 +660,7 @@ export default function SalaryStructureDetail() {
       </div>
 
       {/* SECTION 3 — SALARY RULES */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-5 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">SECTION 3 — SALARY RULES</h2>
@@ -643,6 +677,56 @@ export default function SalaryStructureDetail() {
             </button>
           )}
         </div>
+
+        {structure.rules && structure.rules.length > 0 && (
+          <SearchFilterBar
+            searchQuery={ruleSearch}
+            onSearchChange={setRuleSearch}
+            searchPlaceholder="Search rules by name or code..."
+            filters={[
+              {
+                key: 'category',
+                label: 'Category',
+                value: ruleCatFilter,
+                options: [
+                  { label: 'All Categories', value: 'ALL' },
+                  { label: 'Earnings', value: 'EARNING' },
+                  { label: 'Deductions', value: 'DEDUCTION' },
+                  { label: 'Employer Contributions', value: 'EMPLOYER_CONTRIBUTION' },
+                ],
+                onChange: setRuleCatFilter,
+              },
+              {
+                key: 'type',
+                label: 'Calculation Type',
+                value: ruleCalcFilter,
+                options: [
+                  { label: 'All Types', value: 'ALL' },
+                  { label: 'Fixed Amount', value: 'FIXED_AMOUNT' },
+                  { label: 'Percentage', value: 'PERCENTAGE' },
+                  { label: 'Formula', value: 'FORMULA' },
+                ],
+                onChange: setRuleCalcFilter,
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                value: ruleStatusFilter,
+                options: [
+                  { label: 'All Statuses', value: 'ALL' },
+                  { label: 'Active Only', value: 'ACTIVE' },
+                  { label: 'Inactive Only', value: 'INACTIVE' },
+                ],
+                onChange: setRuleStatusFilter,
+              },
+            ]}
+            activeFilterChips={activeRuleFilterChips}
+            onClearAll={handleClearRuleFilters}
+            resultsCount={filteredRules.length}
+            totalCount={structure.rules.length}
+            unitName="salary rules"
+          />
+        )}
 
         {!structure.rules || structure.rules.length === 0 ? (
           <div className="p-8 text-center space-y-3">
@@ -661,10 +745,17 @@ export default function SalaryStructureDetail() {
               </button>
             )}
           </div>
+        ) : filteredRules.length === 0 ? (
+          <EmptyState
+            title="No Matching Rules Found"
+            description="No salary rules match your search or filter criteria."
+            hasActiveFilters={ruleSearch.trim() !== '' || activeRuleFilterChips.length > 0}
+            onClearFilters={handleClearRuleFilters}
+          />
         ) : (
           <div className="space-y-6">
             {['EARNING', 'DEDUCTION', 'EMPLOYER_CONTRIBUTION'].map((catKey) => {
-              const categoryRules = (structure.rules || []).filter((r) => r.category === catKey);
+              const categoryRules = filteredRules.filter((r) => r.category === catKey);
               if (categoryRules.length === 0) return null;
               const title =
                 catKey === 'EARNING'
