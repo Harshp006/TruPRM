@@ -45,7 +45,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // GET /api/working-schedules/:id
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const schedule = await prisma.workingSchedule.findUnique({
       where: { id },
       include: {
@@ -97,7 +97,7 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
 // PUT /api/working-schedules/:id
 router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, flexibleHours, scheduleLines } = req.body;
 
     const hoursPerWeek = scheduleLines ? calculateHoursPerWeek(scheduleLines) : undefined;

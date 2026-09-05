@@ -10,6 +10,8 @@ import usersRouter from './routes/users';
 import employeesRouter from './routes/employees';
 import workingSchedulesRouter from './routes/working-schedules';
 import contractsRouter from './routes/contracts';
+import attendanceRouter from './routes/attendance';
+import timeoffRouter from './routes/timeoff';
 import { authenticate } from './middleware/authenticate';
 import { authorize } from './middleware/authorize';
 
@@ -34,6 +36,8 @@ app.use('/api/users', usersRouter);
 app.use('/api/employees', employeesRouter);
 app.use('/api/working-schedules', workingSchedulesRouter);
 app.use('/api/contracts', contractsRouter);
+app.use('/api/attendance', attendanceRouter);
+app.use('/api/timeoff', timeoffRouter);
 
 // ── Protected test routes ──────────────────────────────────────────────────
 // Any authenticated user

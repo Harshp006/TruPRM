@@ -27,7 +27,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // GET /api/contracts/:id
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const contract = await prisma.contract.findUnique({
       where: { id },
       include: {
@@ -124,7 +124,7 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
 // PUT /api/contracts/:id
 router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       employeeId,
       contractType,

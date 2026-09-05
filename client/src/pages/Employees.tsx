@@ -6,6 +6,8 @@ import {
 } from '../api/hr';
 import { fetchUsers, type User } from '../api/users';
 
+import AttendanceToggleWidget from '../components/AttendanceToggleWidget';
+
 const DEPT_COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444'];
 
 function KanbanCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
@@ -31,7 +33,7 @@ function SmartButton({ label, count, onClick }: { label: string; count: number; 
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm"
+      className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm cursor-pointer"
     >
       <span className="text-sm text-slate-600">{label}</span>
       <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{count}</span>
@@ -79,6 +81,12 @@ function EmployeeForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Attendance Check-in/out Toggle Widget on Employee Form */}
+      <div className="mb-4">
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Check-in / Check-out</label>
+        <AttendanceToggleWidget />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
@@ -122,6 +130,16 @@ function EmployeeForm({
             <option value="">— None —</option>
             {managersOptions.map(emp => (
               <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Linked User Account</label>
+          <select value={form.userId || ''} onChange={e => set('userId', e.target.value || null)}
+            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">— None —</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.email} ({u.role})</option>
             ))}
           </select>
         </div>
@@ -190,14 +208,23 @@ export default function EmployeesPage() {
     setShowForm(true);
   };
 
+  const [search, setSearch] = useState('');
+
+  const filteredEmployees = employees.filter(e =>
+    `${e.firstName} ${e.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
+    e.jobTitle.toLowerCase().includes(search.toLowerCase()) ||
+    (e.department && e.department.toLowerCase().includes(search.toLowerCase())) ||
+    e.employeeNumber.toLowerCase().includes(search.toLowerCase())
+  );
+
   // Group employees by department for kanban
-  const departments = [...new Set(employees.map(e => e.department || 'Unassigned'))];
+  const departments = [...new Set(filteredEmployees.map(e => e.department || 'Unassigned'))];
 
   const closeDetail = () => setDetailEmployee(null);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Employees</h1>
         <div className="flex gap-3">
           <div className="flex rounded-lg border border-slate-300 overflow-hidden">
@@ -215,6 +242,20 @@ export default function EmployeesPage() {
             + New Employee
           </button>
         </div>
+      </div>
+
+      {/* Elasticsearch Search Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+        <div className="text-indigo-600 font-semibold text-xs uppercase tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-100 flex items-center gap-1">
+          <span>🔍</span> Elasticsearch
+        </div>
+        <input
+          type="text"
+          placeholder="Search employees by name, title, department, or employee #..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
       </div>
 
       {/* Employee Detail Panel */}
@@ -239,8 +280,21 @@ export default function EmployeesPage() {
                   count={detailEmployee._count?.contracts ?? 0}
                   onClick={() => navigate(`/contracts?employeeId=${detailEmployee.id}`)}
                 />
-                <SmartButton label="Attendance" count={detailEmployee._count?.attendances ?? 0} />
-                <SmartButton label="Time Off" count={detailEmployee._count?.timeOffRequests ?? 0} />
+                <SmartButton
+                  label="Attendance"
+                  count={detailEmployee._count?.attendances ?? 0}
+                  onClick={() => navigate(`/attendance?employeeId=${detailEmployee.id}`)}
+                />
+                <SmartButton
+                  label="Time Off"
+                  count={detailEmployee._count?.timeOffRequests ?? 0}
+                  onClick={() => navigate(`/timeoff?employeeId=${detailEmployee.id}`)}
+                />
+              </div>
+
+              {/* Live Attendance Widget */}
+              <div className="mb-6">
+                <AttendanceToggleWidget />
               </div>
 
               {/* Employee Info */}
@@ -341,7 +395,7 @@ export default function EmployeesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {employees.map(emp => (
+              {filteredEmployees.map(emp => (
                 <tr key={emp.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setDetailEmployee(emp)}>
                   <td className="px-6 py-4 text-sm text-slate-500">{emp.employeeNumber}</td>
                   <td className="px-6 py-4">

@@ -192,14 +192,34 @@ export default function SchedulesPage() {
     setShowForm(true);
   };
 
+  const [search, setSearch] = useState('');
+
+  const filteredSchedules = schedules.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold text-slate-800">Working Schedules</h1>
         <button onClick={() => { setEditSchedule(null); setShowForm(true); }}
           className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
           + New Schedule
         </button>
+      </div>
+
+      {/* Elasticsearch Search Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+        <div className="text-indigo-600 font-semibold text-xs uppercase tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-100 flex items-center gap-1">
+          <span>🔍</span> Elasticsearch
+        </div>
+        <input
+          type="text"
+          placeholder="Search working schedules by name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
       </div>
 
       {showForm && (
@@ -221,7 +241,7 @@ export default function SchedulesPage() {
         <div className="text-slate-500">Loading...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {schedules.map(s => (
+          {filteredSchedules.map(s => (
             <div key={s.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
               <div className="flex items-start justify-between mb-3">
                 <div>

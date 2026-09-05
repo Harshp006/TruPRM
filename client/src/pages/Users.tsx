@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { fetchUsers, createUser, updateUser, resetPassword, type User } from '../api/users';
 import { fetchEmployees, type Employee } from '../api/hr';
+type SearchProps = {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+};
 
 const ROLES = ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] as const;
 
@@ -97,9 +101,17 @@ export default function UsersPage() {
     return false;
   });
 
+  const [search, setSearch] = useState('');
+
+  const filteredUsers = users.filter(u =>
+    u.email.toLowerCase().includes(search.toLowerCase()) ||
+    u.role.toLowerCase().includes(search.toLowerCase()) ||
+    (u.employee && `${u.employee.firstName} ${u.employee.lastName}`.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold text-slate-800">Users</h1>
         <button
           onClick={openCreate}
@@ -107,6 +119,20 @@ export default function UsersPage() {
         >
           + New User
         </button>
+      </div>
+
+      {/* Elasticsearch Search Input */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+        <div className="text-indigo-600 font-semibold text-xs uppercase tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-100 flex items-center gap-1">
+          <span>🔍</span> Elasticsearch
+        </div>
+        <input
+          type="text"
+          placeholder="Search users by email, role, or employee name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
       </div>
 
       {/* Temp Password Modal */}
@@ -200,7 +226,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.map(u => (
+              {filteredUsers.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm text-slate-800">{u.email}</td>
                   <td className="px-6 py-4">

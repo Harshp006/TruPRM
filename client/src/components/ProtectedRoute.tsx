@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth, type Role } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
@@ -7,9 +7,20 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Force password change if required, unless they are already on the change-password page
+  if (user?.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+  
+  // Prevent going to change-password if they don't need to
+  if (!user?.mustChangePassword && location.pathname === '/change-password') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {

@@ -2,27 +2,50 @@ import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-export default function LoginPage() {
-  const { login } = useAuth();
+export default function ChangePasswordPage() {
+  const { token, refreshUser } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
     setLoading(true);
     try {
-      const loggedInUser = await login(email, password);
-      if (loggedInUser.mustChangePassword) {
-        navigate('/change-password');
-      } else {
-        navigate('/dashboard');
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/change-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ newPassword }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Failed to update password' }));
+        throw new Error(err.message ?? 'Failed to update password');
       }
+
+      await refreshUser(); // Update context to clear mustChangePassword
+      navigate('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -36,10 +59,10 @@ export default function LoginPage() {
           {/* Logo / Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white tracking-tight">
-              Tru<span className="text-blue-400">PRM</span>
+              Action Required
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Sign in to your account
+            <p className="mt-2 text-sm text-slate-400">
+              Please change your temporary password to continue.
             </p>
           </div>
 
@@ -51,43 +74,39 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
             <div>
               <label
-                htmlFor="email"
+                htmlFor="newPassword"
                 className="block text-sm font-medium text-slate-300 mb-1.5"
               >
-                Email address
+                New Password
               </label>
               <input
-                id="email"
-                type="email"
-                autoComplete="email"
+                id="newPassword"
+                type="password"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/15 text-white placeholder-slate-500
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                            transition duration-150"
-                placeholder="admin@truprm.com"
+                placeholder="••••••••"
               />
             </div>
 
-            {/* Password */}
             <div>
               <label
-                htmlFor="password"
+                htmlFor="confirmPassword"
                 className="block text-sm font-medium text-slate-300 mb-1.5"
               >
-                Password
+                Confirm Password
               </label>
               <input
-                id="password"
+                id="confirmPassword"
                 type="password"
-                autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/15 text-white placeholder-slate-500
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                            transition duration-150"
@@ -97,7 +116,6 @@ export default function LoginPage() {
 
             {/* Submit */}
             <button
-              id="login-submit"
               type="submit"
               disabled={loading}
               className="w-full py-2.5 px-4 rounded-lg font-semibold text-white
@@ -105,14 +123,10 @@ export default function LoginPage() {
                          disabled:opacity-50 disabled:cursor-not-allowed
                          transition duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900"
             >
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? 'Updating…' : 'Change Password'}
             </button>
           </form>
         </div>
-
-        <p className="text-center text-slate-600 text-xs mt-6">
-          TruPRM © {new Date().getFullYear()}
-        </p>
       </div>
     </div>
   );

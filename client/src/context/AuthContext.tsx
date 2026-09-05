@@ -19,13 +19,15 @@ export interface AuthUser {
   id: string;
   email: string;
   role: Role;
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -66,11 +68,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token);
     setTokenState(data.token);
     setUser(data.user);
+    return data.user;
   }, []);
+
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUser(data.user);
+    }
+  }, [token]);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, login, logout, isAuthenticated: !!user }}
+      value={{ user, token, login, logout, refreshUser, isAuthenticated: !!user }}
     >
       {children}
     </AuthContext.Provider>

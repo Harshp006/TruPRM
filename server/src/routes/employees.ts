@@ -30,10 +30,70 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// GET /api/employees/me
+router.get('/me', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthenticated' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+      include: {
+        manager: { select: { id: true, firstName: true, lastName: true } },
+        contracts: { orderBy: { startDate: 'desc' } },
+        user: { select: { email: true, role: true } },
+      },
+    });
+
+    if (!employee) {
+      res.status(404).json({ message: 'Employee profile not found' });
+      return;
+    }
+
+    res.json(employee);
+  } catch (err) {
+    console.error('Fetch my profile error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// PUT /api/employees/me
+router.put('/me', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ message: 'Unauthenticated' });
+      return;
+    }
+
+    const { firstName, lastName, dateOfBirth, color } = req.body;
+
+    // Only allow updating personal information fields
+    const data: any = {};
+    if (firstName) data.firstName = firstName;
+    if (lastName) data.lastName = lastName;
+    if (color !== undefined) data.color = color;
+    if (dateOfBirth) data.dateOfBirth = new Date(dateOfBirth);
+
+    const employee = await prisma.employee.update({
+      where: { userId },
+      data,
+    });
+
+    res.json(employee);
+  } catch (err) {
+    console.error('Update my profile error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // GET /api/employees/:id
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const employee = await prisma.employee.findUnique({
       where: { id },
       include: {
@@ -98,7 +158,7 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
 // PUT /api/employees/:id
 router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       userId,
       employeeNumber,

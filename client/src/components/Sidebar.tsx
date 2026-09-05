@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', roles: [] },
+  { path: '/profile', label: 'My Profile', roles: [] },
+  { path: '/attendance', label: 'Attendance', roles: [] },
+  { path: '/timeoff', label: 'Time Off', roles: [] },
   { path: '/employees', label: 'Employees', roles: ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] },
   { path: '/working-schedules', label: 'Schedules', roles: ['HR_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'] },
   { path: '/contracts', label: 'Contracts', roles: ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] },

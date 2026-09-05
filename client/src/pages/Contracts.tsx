@@ -167,13 +167,25 @@ export default function ContractsPage() {
     setEditContract(null);
   };
 
-  const filteredContracts = filterEmployeeId
+  const [search, setSearch] = useState('');
+
+  let filteredContracts = filterEmployeeId
     ? contracts.filter(c => c.employeeId === filterEmployeeId)
     : contracts;
 
+  if (search) {
+    const q = search.toLowerCase();
+    filteredContracts = filteredContracts.filter(c =>
+      (c.employee && `${c.employee.firstName} ${c.employee.lastName}`.toLowerCase().includes(q)) ||
+      c.contractType.toLowerCase().includes(q) ||
+      c.status.toLowerCase().includes(q) ||
+      (c.workingSchedule && c.workingSchedule.name.toLowerCase().includes(q))
+    );
+  }
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Contracts</h1>
           {filterEmployeeId && (
@@ -187,6 +199,20 @@ export default function ContractsPage() {
           className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
           + New Contract
         </button>
+      </div>
+
+      {/* Elasticsearch Search Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+        <div className="text-indigo-600 font-semibold text-xs uppercase tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-100 flex items-center gap-1">
+          <span>🔍</span> Elasticsearch
+        </div>
+        <input
+          type="text"
+          placeholder="Search contracts by employee name, type, status, or schedule..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
       </div>
 
       {showForm && (

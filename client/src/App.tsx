@@ -3,11 +3,16 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
 import UsersPage from './pages/Users';
 import EmployeesPage from './pages/Employees';
 import SchedulesPage from './pages/WorkingSchedules';
 import ContractsPage from './pages/Contracts';
+
+import AttendancePage from './pages/AttendancePage';
+import TimeOffPage from './pages/TimeOffPage';
 
 export default function App() {
   return (
@@ -16,10 +21,15 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
-          {/* All protected routes share the Layout */}
+          {/* All protected routes share the Layout except change-password */}
           <Route element={<ProtectedRoute />}>
+            <Route path="/change-password" element={<ChangePasswordPage />} />
+            
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/timeoff" element={<TimeOffPage />} />
 
               {/* HR and above */}
               <Route

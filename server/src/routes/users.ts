@@ -79,7 +79,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 // PUT /api/users/:id
 router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { role, employeeId } = req.body;
 
     const data: any = {};
@@ -108,7 +108,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 // POST /api/users/:id/reset-password
 router.post('/:id/reset-password', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {

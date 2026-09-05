@@ -89,6 +89,7 @@ model Attendance {
   date       DateTime         @db.Date
   checkIn    DateTime?
   checkOut   DateTime?
+  workedHours Float?
   status     AttendanceStatus @default(PRESENT)
   notes      String?
   createdAt  DateTime         @default(now())
@@ -102,7 +103,9 @@ model TimeOffType {
   id               String              @id @default(cuid())
   name             String              @unique
   code             String              @unique
+  unit             String              @default("DAYS")
   isPaid           Boolean             @default(true)
+  requiresAllocation Boolean           @default(true)
   maxDaysPerYear   Float?
   requiresApproval Boolean             @default(true)
   createdAt        DateTime            @default(now())
@@ -118,6 +121,9 @@ model TimeOffAllocation {
   year          Int
   daysAllocated Float
   daysUsed      Float       @default(0)
+  remaining     Float       @default(0)
+  validityFrom  DateTime?   @db.Date
+  validityTo    DateTime?   @db.Date
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -261,6 +267,7 @@ enum AttendanceStatus {
 enum TimeOffStatus {
   DRAFT
   CONFIRMED
+  APPROVED
   VALIDATED
   REFUSED
 }
