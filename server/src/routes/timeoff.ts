@@ -23,7 +23,7 @@ router.get('/types', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /api/timeoff/types
-router.post('/types', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.post('/types', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, code, unit, isPaid, requiresAllocation, maxDaysPerYear, requiresApproval } = req.body;
 
@@ -71,7 +71,7 @@ router.get('/allocations', async (req: Request, res: Response): Promise<void> =>
 });
 
 // POST /api/timeoff/allocations (Create/Set allocation)
-router.post('/allocations', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.post('/allocations', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const { employeeId, timeOffTypeId, year, daysAllocated, validityFrom, validityTo } = req.body;
 
@@ -191,7 +191,7 @@ router.post('/requests', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /api/timeoff/requests/:id/approve - Approve leave request (STRICT SINGLE PRISMA TRANSACTION)
-router.post('/requests/:id/approve', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.post('/requests/:id/approve', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const requestId = req.params.id as string;
 
@@ -269,7 +269,7 @@ router.post('/requests/:id/approve', authorize('HR_MANAGER', 'ADMIN'), async (re
 });
 
 // POST /api/timeoff/requests/:id/refuse - Refuse leave request
-router.post('/requests/:id/refuse', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.post('/requests/:id/refuse', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const requestId = req.params.id as string;
     const { refusalReason } = req.body;

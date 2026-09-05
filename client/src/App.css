@@ -1,184 +1,93 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
+table {
   width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+  border-collapse: collapse !important;
+  margin-bottom: 20px;
+  background-color: #ffffff;
+  border: 1px solid #999;
 }
+
+table th, table td {
+  border: 1px solid #999 !important;
+  padding: 8px !important;
+  text-align: left;
+  font-size: 13px !important;
+  color: #000 !important;
+}
+
+table th {
+  background-color: #e0e0e0 !important;
+  font-weight: bold !important;
+  text-transform: uppercase;
+}
+
+table tbody tr:nth-child(even) {
+  background-color: #f9f9f9 !important;
+}
+table tbody tr:hover {
+  background-color: #ffffcc !important;
+}
+
+/* Force standard buttons */
+button {
+  background-color: #e0e0e0 !important;
+  border: 1px outset #999 !important;
+  color: #000 !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+}
+button:active {
+  border-style: inset !important;
+}
+button:disabled {
+  color: #888 !important;
+  background-color: #f0f0f0 !important;
+}
+
+/* Force standard inputs */
+input, select, textarea {
+  border: 1px solid #999 !important;
+  padding: 4px !important;
+  font-size: 13px !important;
+  border-radius: 0 !important;
+  background-color: #fff !important;
+  color: #000 !important;
+}
+
+/* Strip Tailwind rounding and shadows from all major blocks */
+.rounded-xl, .rounded-2xl, .rounded-lg, .rounded-md, .rounded-full {
+  border-radius: 0 !important;
+}
+
+.shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl, .shadow-2xs {
+  box-shadow: none !important;
+}
+
+/* Headers */
+h1, h2, h3 {
+  font-family: Arial, sans-serif !important;
+  color: #000 !important;
+  margin-bottom: 10px !important;
+}
+
+/* Overrides for specific tailwind bg colors */
+.bg-slate-50, .bg-brand-50, .bg-emerald-50, .bg-rose-50 {
+  background-color: #f4f4f4 !important;
+  border: 1px solid #ccc !important;
+}
+
+/* TOTAL COLOR STRIP - As requested */
+[class*='text-slate-'], [class*='text-brand-'], [class*='text-emerald-'], [class*='text-indigo-'], [class*='text-rose-'], [class*='text-amber-'], [class*='text-blue-'], [class*='text-red-'] { color: #000 !important; }
+[class*='bg-slate-'], [class*='bg-brand-'], [class*='bg-emerald-'], [class*='bg-indigo-'], [class*='bg-rose-'], [class*='bg-amber-'], [class*='bg-blue-'], [class*='bg-red-'] { background-color: #fff !important; }
+[class*='border-slate-'], [class*='border-brand-'], [class*='border-emerald-'], [class*='border-indigo-'], [class*='border-rose-'], [class*='border-amber-'], [class*='border-blue-'], [class*='border-red-'] { border-color: #000 !important; }
+
+/* SHINK THE UI: Make text normal Arial and reduce huge card padding */
+[class*='text-xs'], [class*='text-sm'], [class*='text-base'], [class*='text-lg'], [class*='text-xl'], [class*='text-2xl'], [class*='text-3xl'], [class*='text-4xl'], [class*='text-5xl'] { font-size: 13px !important; line-height: normal !important; font-family: Arial, Helvetica, sans-serif !important; }
+[class*='p-4'], [class*='p-5'], [class*='p-6'], [class*='p-7'], [class*='p-8'], [class*='p-10'] { padding: 10px !important; }
+[class*='gap-4'], [class*='gap-5'], [class*='gap-6'], [class*='gap-8'] { gap: 10px !important; }
+[class*='space-y-4'] > * + *, [class*='space-y-6'] > * + * { margin-top: 10px !important; }
+* { font-family: Arial, Helvetica, sans-serif; }
+h1 { font-size: 18px !important; }
+h2 { font-size: 16px !important; }
+h3 { font-size: 14px !important; }

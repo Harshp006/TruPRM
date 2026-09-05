@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SearchFilterBar, EmptyState, type FilterOption } from '../components/SearchFilterBar';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 
 interface PayslipLine {
   id: string;
@@ -126,6 +128,19 @@ const Payslips: React.FC = () => {
     } finally {
       setFetchingDetail(false);
     }
+  };
+
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('payslip-print-content');
+    if (!element) return;
+    const opt = {
+      margin: 10,
+      filename: `payslip-${selectedPayslip?.employee?.employeeNumber}-${selectedPayslip?.periodStart}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
   };
 
   // Dynamic Department Options from Payslips
@@ -455,10 +470,10 @@ const Payslips: React.FC = () => {
               <span className="font-bold text-slate-700">Official Salary Statement</span>
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => window.print()}
+                  onClick={handleDownloadPDF}
                   className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition"
                 >
-                  <span>Print</span>
+                  <span>Download PDF</span>
                 </button>
                 <button
                   onClick={() => setIsDetailOpen(false)}
@@ -475,7 +490,7 @@ const Payslips: React.FC = () => {
                 Loading payslip details...
               </div>
             ) : (
-              <div className="p-8 space-y-6 overflow-y-auto flex-1 font-sans">
+              <div id="payslip-print-content" className="p-8 space-y-6 overflow-y-auto flex-1 font-sans">
                 {/* Payslip Header Card */}
                 <div className="flex justify-between items-start border-b border-slate-200 pb-6">
                   <div>

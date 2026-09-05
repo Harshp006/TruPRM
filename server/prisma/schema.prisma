@@ -209,11 +209,13 @@ model Payslip {
   payrunId          String
   employeeId        String
   salaryStructureId String?
+  state             PayslipState     @default(DRAFT)
   periodStart       DateTime         @db.Date
   periodEnd         DateTime         @db.Date
   basicWage         Decimal          @db.Decimal(12, 2)
   grossWage         Decimal?         @db.Decimal(12, 2)
   netWage           Decimal?         @db.Decimal(12, 2)
+  totalDeductions   Decimal?         @db.Decimal(12, 2)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   employee          Employee         @relation(fields: [employeeId], references: [id])
@@ -312,6 +314,15 @@ enum SalaryRuleCategory {
 
 enum PayrunState {
   DRAFT
-  DONE
+  COMPUTED
+  VALIDATED
+  PAID
   CANCELLED
+}
+
+enum PayslipState {
+  DRAFT
+  COMPUTED
+  VALIDATED
+  PAID
 }

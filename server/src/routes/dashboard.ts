@@ -63,7 +63,7 @@ router.get('/payroll-manager', authenticate, async (req: Request, res: Response)
     const filterOptions = {
       departments: dbDepartments,
       employeeTypes: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN'],
-      companies: ['PeoplePay360 Inc.'],
+      companies: ['TruPRM'],
       periods: dbPeriods,
     };
 

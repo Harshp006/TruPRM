@@ -50,10 +50,24 @@ const AppRoutes: React.FC = () => {
           </Route>
 
           {/* Schedules, Attendance & Time-off */}
-          <Route path="/working-schedules" element={<WorkingSchedules />} />
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/time-off" element={<TimeOffPage />} />
           <Route path="/timeoff" element={<TimeOffPage />} />
+
+          <Route
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  'HR_MANAGER',
+                  'HR_PAYROLL_USER',
+                  'HR_PAYROLL_ADMIN',
+                  'ADMIN',
+                ]}
+              />
+            }
+          >
+            <Route path="/working-schedules" element={<WorkingSchedules />} />
+          </Route>
 
           {/* Salary Structure Management (Admin & HR Payroll Manager full, HR Payroll User read-only) */}
           <Route
@@ -78,15 +92,14 @@ const AppRoutes: React.FC = () => {
             <Route path="/salary-structures/:id" element={<SalaryStructureDetail />} />
           </Route>
 
-          {/* Pay Runs (HR Payroll User, HR Payroll Manager, HR Manager, Admin) */}
+          {/* Pay Runs (HR Payroll User, HR Payroll Manager, Admin) */}
           <Route
             element={
               <ProtectedRoute
                 allowedRoles={[
                   'HR_PAYROLL_USER',
                   'HR_PAYROLL_ADMIN',
-                  'ADMIN',
-                  'HR_MANAGER',
+                  'ADMIN'
                 ]}
               />
             }

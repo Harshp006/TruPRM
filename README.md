@@ -1,35 +1,78 @@
-# TruPRM
+# TruPRM (formerly PeoplePay360)
 
-TruPRM is a platform for pull request monitoring, management, and process automation.
+An integrated Human Resource and Payroll Operations Platform designed to manage the full employee lifecycle—from master data and time tracking to complex payroll calculation and reporting.
 
-## Phase Checklist
-- [x] Phase 0: Monorepo & Core Setup
-- [x] Phase 1: Authentication & User Management
-- [x] Phase 2: Core Data Models & APIs
-- [x] Phase 3: Attendance, TimeOff Management & Search Integration
-- [ ] Phase 4: Frontend UI & Integration
+## 🚀 Features
 
-## Progress Log
-- Phase 0 complete: Monorepo initialized with /client (React + Vite + Tailwind CSS) and /server (Node + Express + Prisma, TypeScript), GET /health returns {status: "ok"}, and client dev server loaded with Tailwind CSS.
-- Phase 1 complete: Full Prisma schema (15 models: User, Employee, Contract, WorkingSchedule, ScheduleLine, Attendance, TimeOffType, TimeOffAllocation, TimeOffRequest, SalaryStructure, SalaryRule, Payrun, Payslip, PayslipLine) with 5 hardcoded roles (EMPLOYEE, HR_MANAGER, HR_PAYROLL_USER, HR_PAYROLL_ADMIN, ADMIN). Implemented POST /auth/login (bcrypt + JWT, 8h expiry), authenticate middleware, authorize() factory, hardcoded permission map (src/lib/permissions.ts), seed script seeding admin from SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD. React: AuthContext (JWT in memory), axios interceptor, login page, ProtectedRoute with role filtering. Verified: ADMIN login returns 200, EMPLOYEE on admin-only route returns 403. Decision: JWT stored in memory (not localStorage) for XSS safety.
-- Phase 2 complete: Added `mustChangePassword` to User schema and `color` to Employee. Added Backend API routes for Users, Employees, Working Schedules, and Contracts with appropriate role-based authorization. Prevented overlapping ACTIVE contracts via transaction logic. Replaced inline styles with Tailwind CSS globally and set up Inter typography. Created a unified `Layout` component with role-filtered sidebar navigation. Built User Management (CRUD + password reset), Employee Management (List/Kanban views + smart buttons), Schedule builder (dynamic lines + auto hours calculation), and Contract management forms.
-- Phase 3 complete: Implemented Attendance and Time Off modules with Elasticsearch search bars across all list views (Users, Employees, Schedules, Contracts, Attendance, Time Off). Built Attendance check-in/out toggle widget (global top navbar + employee form) powered by single `POST /api/attendance/toggle` endpoint managing open sessions and calculating `workedHours`. Implemented global Attendance List + manual correction form restricted to HR_MANAGER+. Built TimeOffType, TimeOffAllocation, and TimeOffRequest. CRITICAL: Leave approval for types requiring allocation executes within a single `prisma.$transaction` updating status to `APPROVED`, incrementing `daysUsed`, and decrementing `remaining`. Edge case handled: Refusing an approved request automatically restores allocated remaining days within a single transaction.
+### 1. Unified HR Flow
+Centralized employee records act as the operational hub, providing seamless navigation to related Contracts, Attendance, and Time Off entries.
 
+### 2. Contract Management
+Maintains historical contract records (Full-Time, Part-Time, Contractor, Intern) and ensures the payroll computation engine strictly uses the contract active during the requested pay period.
 
-## Docker Setup
-To set up and run the application using Docker, follow these steps:
+### 3. Operational Tracking
+- **Working Schedules**: Configure standard and flexible weekly patterns to automatically compute expected hours.
+- **Attendance**: Capture daily check-ins, check-outs, worked hours, and exceptions, with manual correction support for HR Managers.
+- **Time Off**: Automates leave management, including custom Time Off Types, Allocations, and Requests. Approved requests dynamically deduct from available allocation balances.
 
-1. Start the Docker containers in detached mode:
+### 4. Payroll Engine & Processing
+- **Salary Configuration**: Highly flexible Salary Structures and Rules. Supports Basic, Allowance, Deduction, and Employer Contribution categories with fixed, percentage, and conditional formula calculation methods.
+- **Payrun Wizard**: A robust batch processing system for selecting eligible employees based on active contracts and evaluating all salary rules in sequence.
+- **Validation**: Surfaces warnings for missing bank details, missing rules, or incomplete data prior to finalizing a Payrun.
+- **Payslip Distribution**: Generates dynamic PDF payslips on-demand and supports bulk email distribution directly from finalized Payruns.
+
+### 5. Reporting Dashboard
+Live, dynamic HR and Payroll metrics summarizing costs, attendance health, time-off balances, and headcount by department, completely driven by real-time system data.
+
+## 👥 Role-Based Access Control
+
+The platform enforces strict role-based data and module access:
+- **`EMPLOYEE`**: Read-only access to own profile, attendance, and leave. Can create check-ins and time-off requests.
+- **`HR_MANAGER`**: Full administrative access to HR modules (Employees, Attendance, Contracts, Schedules, Time Off). No access to payroll data or processing.
+- **`HR_PAYROLL_USER`**: Inherits `HR_MANAGER` permissions plus read/write access to Payruns and Payslips. Read-only access to Salary Configuration.
+- **`HR_PAYROLL_ADMIN`**: Full administrative access to Payroll processing and Salary Configuration.
+- **`ADMIN`**: Superuser with complete system access, including User Management.
+
+## 🛠️ Technology Stack
+- **Frontend**: React (Vite), TypeScript, Tailwind CSS, React Router, Recharts, html2pdf.js
+- **Backend**: Node.js, Express, TypeScript, Prisma ORM
+- **Database**: PostgreSQL
+- **Security**: JWT Authentication, Role-based Middleware Authorization
+
+## 🏗️ Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- PostgreSQL Database
+
+### Installation
+
+1. **Clone the repository**
+2. **Install dependencies**
    ```bash
-   docker compose up -d
+   cd server && npm install
+   cd ../client && npm install
    ```
-
-2. Run Prisma migrations to set up the database schema:
-   ```bash
-   npx prisma migrate dev
+3. **Configure Environment**
+   Create a `.env` file in the `server` directory:
+   ```env
+   DATABASE_URL="postgresql://user:password@localhost:5432/truprm"
+   JWT_SECRET="your_jwt_secret"
+   PORT=5000
    ```
-
-3. Seed the database with initial data:
+4. **Initialize Database**
    ```bash
-   npx prisma db seed
+   cd server
+   npx prisma generate
+   npx prisma db push
+   # Optional: Seed the database
+   npm run seed
+   ```
+5. **Start Application**
+   ```bash
+   # Terminal 1 - Start Server
+   cd server && npm run dev
+   
+   # Terminal 2 - Start Client
+   cd client && npm run dev
    ```

@@ -25,106 +25,95 @@ export default function ChangePasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/change-password`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ newPassword }),
-        }
-      );
+      const res = await fetch('http://localhost:5000/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newPassword }),
+      });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Failed to update password' }));
-        throw new Error(err.message ?? 'Failed to update password');
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to change password');
       }
 
-      await refreshUser(); // Update context to clear mustChangePassword
+      await refreshUser();
       navigate('/dashboard');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update password');
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
-          {/* Logo / Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white tracking-tight">
-              Action Required
-            </h1>
-            <p className="mt-2 text-sm text-slate-400">
-              Please change your temporary password to continue.
-            </p>
+    <div style={{ padding: '50px', backgroundColor: '#e8e8e8', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ width: '400px', backgroundColor: 'white', border: '2px solid #333', padding: '0' }}>
+        
+        <div style={{ backgroundColor: '#cc0000', color: 'white', padding: '10px', fontSize: '16px', fontWeight: 'bold', borderBottom: '2px solid #333' }}>
+          Action Required: Change Password
+        </div>
+        
+        <div style={{ padding: '20px' }}>
+          <div style={{ marginBottom: '20px', fontSize: '13px', color: '#333' }}>
+            <strong>System Notice:</strong> You must update your password before proceeding to the ERP modules.
           </div>
 
-          {/* Error banner */}
-          {error && (
-            <div className="mb-4 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
-              {error}
-            </div>
-          )}
+          <form onSubmit={handleSubmit}>
+            {error && (
+              <div style={{ color: 'red', border: '1px solid red', padding: '8px', marginBottom: '15px', fontSize: '12px', backgroundColor: '#ffeeee' }}>
+                Error: {error}
+              </div>
+            )}
+            
+            <table style={{ width: '100%', marginBottom: '15px', borderCollapse: 'collapse' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '8px 0', width: '40%', fontSize: '13px', fontWeight: 'bold' }}>New Password:</td>
+                  <td style={{ padding: '8px 0' }}>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      style={{ width: '100%', border: '1px solid #999', padding: '4px', fontSize: '13px' }}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 0', fontSize: '13px', fontWeight: 'bold' }}>Confirm Password:</td>
+                  <td style={{ padding: '8px 0' }}>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      style={{ width: '100%', border: '1px solid #999', padding: '4px', fontSize: '13px' }}
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="newPassword"
-                className="block text-sm font-medium text-slate-300 mb-1.5"
+            <div style={{ borderTop: '1px solid #ccc', paddingTop: '15px', textAlign: 'right' }}>
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  backgroundColor: '#e0e0e0',
+                  border: '1px outset #999',
+                  padding: '5px 15px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  color: 'black'
+                }}
               >
-                New Password
-              </label>
-              <input
-                id="newPassword"
-                type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/15 text-white placeholder-slate-500
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                           transition duration-150"
-                placeholder="••••••••"
-              />
+                {loading ? 'Processing...' : 'Change Password'}
+              </button>
             </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-slate-300 mb-1.5"
-              >
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/15 text-white placeholder-slate-500
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                           transition duration-150"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 rounded-lg font-semibold text-white
-                         bg-blue-600 hover:bg-blue-500 active:bg-blue-700
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         transition duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-            >
-              {loading ? 'Updating…' : 'Change Password'}
-            </button>
           </form>
         </div>
       </div>
