@@ -40,7 +40,7 @@ function SmartButton({ label, count, onClick }: { label: string; count: number; 
       className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-2xs cursor-pointer transition"
     >
       <span className="text-sm font-semibold text-slate-700">{label}</span>
-      <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">{count}</span>
+      <span className="bg-brand-100 text-brand-700 text-xs font-bold px-2 py-0.5 rounded-full">{count}</span>
     </button>
   );
 }
@@ -94,42 +94,42 @@ function EmployeeForm({
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
           <input required value={form.firstName || ''} onChange={e => set('firstName', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Last Name *</label>
           <input required value={form.lastName || ''} onChange={e => set('lastName', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Employee # *</label>
           <input required value={form.employeeNumber || ''} onChange={e => set('employeeNumber', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Job Title *</label>
           <input required value={form.jobTitle || ''} onChange={e => set('jobTitle', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
           <input value={form.department || ''} onChange={e => set('department', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Hire Date *</label>
           <input required type="date" value={form.hireDate?.slice(0, 10) || ''} onChange={e => set('hireDate', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
           <input type="date" value={form.dateOfBirth?.slice(0, 10) || ''} onChange={e => set('dateOfBirth', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Manager</label>
           <select value={form.managerId || ''} onChange={e => set('managerId', e.target.value || null)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
             <option value="">— None —</option>
             {managersOptions.map(emp => (
               <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
@@ -139,7 +139,7 @@ function EmployeeForm({
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Linked User Account</label>
           <select value={form.userId || ''} onChange={e => set('userId', e.target.value || null)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
             <option value="">— None —</option>
             {users.map(u => (
               <option key={u.id} value={u.id}>{u.email} ({u.role})</option>
@@ -155,7 +155,7 @@ function EmployeeForm({
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving}
-          className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold text-sm disabled:opacity-50 transition">
+          className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 font-bold text-sm disabled:opacity-50 transition">
           {saving ? 'Saving...' : 'Save Employee'}
         </button>
         <button type="button" onClick={onCancel}
@@ -329,17 +329,17 @@ export default function EmployeesPage() {
         <div className="flex gap-3 items-center">
           <div className="flex rounded-xl border border-slate-300 overflow-hidden bg-white shadow-2xs">
             <button onClick={() => setView('list')}
-              className={`px-4 py-2 text-xs font-bold ${view === 'list' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+              className={`px-4 py-2 text-xs font-bold ${view === 'list' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
               List View
             </button>
             <button onClick={() => setView('kanban')}
-              className={`px-4 py-2 text-xs font-bold ${view === 'kanban' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+              className={`px-4 py-2 text-xs font-bold ${view === 'kanban' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
               Kanban View
             </button>
           </div>
           {canManageEmployees && (
             <button onClick={openCreate}
-              className="px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 shadow-xs transition whitespace-nowrap">
+              className="px-5 py-2.5 bg-brand-600 text-white text-xs font-bold rounded-xl hover:bg-brand-700 shadow-xs transition whitespace-nowrap">
               + New Employee
             </button>
           )}
@@ -472,7 +472,7 @@ export default function EmployeesPage() {
                     </div>
                     <div>
                       <span className="text-slate-400 font-semibold text-xs uppercase tracking-wider block">User Role</span>
-                      <p className="font-bold text-indigo-700 text-sm mt-0.5">{detailEmployee.user.role}</p>
+                      <p className="font-bold text-brand-700 text-sm mt-0.5">{detailEmployee.user.role}</p>
                     </div>
                   </>
                 )}
@@ -504,7 +504,7 @@ export default function EmployeesPage() {
 
               {canManageEmployees ? (
                 <button onClick={() => { closeDetail(); openEdit(detailEmployee); }}
-                  className="mt-6 w-full px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-xs transition">
+                  className="mt-6 w-full px-4 py-3 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700 shadow-xs transition">
                   Edit Employee Profile
                 </button>
               ) : (
@@ -538,7 +538,7 @@ export default function EmployeesPage() {
       {/* Main Employee Table / Kanban Content */}
       {loading ? (
         <div className="p-12 text-center text-slate-500 space-y-3">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-brand-600 border-t-transparent"></div>
           <p className="text-sm font-medium">Loading employee directory...</p>
         </div>
       ) : filteredEmployees.length === 0 ? (
@@ -565,7 +565,7 @@ export default function EmployeesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100/80 font-medium">
               {filteredEmployees.map(emp => (
-                <tr key={emp.id} className="hover:bg-indigo-50/40 transition cursor-pointer" onClick={() => setDetailEmployee(emp)}>
+                <tr key={emp.id} className="hover:bg-brand-50/40 transition cursor-pointer" onClick={() => setDetailEmployee(emp)}>
                   <td className="py-3.5 px-4 text-xs font-mono font-bold text-slate-500">#{emp.employeeNumber}</td>
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-3">
@@ -586,14 +586,14 @@ export default function EmployeesPage() {
                   </td>
                   <td className="py-3.5 px-4 text-slate-600">{new Date(emp.hireDate).toLocaleDateString()}</td>
                   <td className="py-3.5 px-4 text-center">
-                    <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                    <span className="bg-brand-100 text-brand-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
                       {emp._count?.contracts ?? 0}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     {canManageEmployees ? (
                       <button onClick={e => { e.stopPropagation(); openEdit(emp); }}
-                        className="px-3 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">Edit</button>
+                        className="px-3 py-1 bg-brand-50 text-brand-600 hover:bg-brand-100 rounded-lg text-xs font-bold transition">Edit</button>
                     ) : (
                       <button onClick={e => { e.stopPropagation(); setDetailEmployee(emp); }}
                         className="px-3 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg text-xs font-bold transition">View</button>

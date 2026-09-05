@@ -162,14 +162,14 @@ export default function HRPayrollManagerDashboard() {
   }, [data]);
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden space-y-10 bg-white text-slate-900 p-8 md:p-10 min-h-screen">
+    <div className="w-full max-w-full overflow-x-hidden space-y-10 bg-[#F0F4F8] text-slate-900 p-8 md:p-10 min-h-screen">
       {/* -------------------------------------------------------------------- */}
       {/* 1. PAYROLL DASHBOARD HEADER                                          */}
       {/* -------------------------------------------------------------------- */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-200">
         <div className="space-y-2">
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Payroll Dashboard
+          <h1 className="text-3xl sm:text-4xl font-bold text-brand-700 tracking-tight">
+            Manager Dashboard
           </h1>
           <p className="text-slate-500 text-base max-w-4xl leading-relaxed font-normal">
             Real-time analytics for payroll costs, staffing allocation, attendance health, and leave balances.
@@ -178,7 +178,7 @@ export default function HRPayrollManagerDashboard() {
         <div className="flex items-center space-x-4 shrink-0">
           <button
             onClick={() => navigate('/salary-structures/new')}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-xs hover:shadow-md transition-all whitespace-nowrap"
+            className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all whitespace-nowrap"
           >
             + Create Salary Structure
           </button>
@@ -188,15 +188,15 @@ export default function HRPayrollManagerDashboard() {
       {/* -------------------------------------------------------------------- */}
       {/* 2. ENHANCED PAYROLL ANALYTICS FILTER CONTROL PANEL                   */}
       {/* -------------------------------------------------------------------- */}
-      <div className="bg-white p-7 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all w-full min-w-0 space-y-6">
+      <div className="bg-white p-7 sm:p-8 rounded-2xl border border-slate-200 shadow-sm transition-all w-full min-w-0 space-y-6">
         {/* Panel Header */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <span className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-lg font-bold">
+            <span className="p-2.5 bg-brand-50 text-brand-600 rounded-xl text-lg font-bold">
               ⚡
             </span>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Payroll Analytics Controls</h2>
+              <h2 className="text-lg font-bold text-slate-800">Payroll Analytics Controls</h2>
               <p className="text-xs text-slate-500 font-medium">Filter dashboard metrics by period, department, type, and company</p>
             </div>
           </div>

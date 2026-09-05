@@ -5,7 +5,7 @@ import AttendanceToggleWidget from './AttendanceToggleWidget';
 
 const Layout: React.FC = () => {
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
+    <div className="flex h-screen bg-[#F0F4F8] overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">

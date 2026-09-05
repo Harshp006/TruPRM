@@ -131,7 +131,7 @@ export default function ProfilePage() {
                     required
                     value={form.firstName}
                     onChange={e => setForm({ ...form, firstName: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div>
@@ -140,7 +140,7 @@ export default function ProfilePage() {
                     required
                     value={form.lastName}
                     onChange={e => setForm({ ...form, lastName: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div>
@@ -149,7 +149,7 @@ export default function ProfilePage() {
                     type="date"
                     value={form.dateOfBirth}
                     onChange={e => setForm({ ...form, dateOfBirth: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
                 <div>
@@ -170,7 +170,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+                  className="px-6 py-2.5 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors shadow-sm"
                 >
                   {saving ? 'Saving Changes...' : 'Save Changes'}
                 </button>
