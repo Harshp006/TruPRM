@@ -153,7 +153,7 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
       if (contractStatus === 'ACTIVE') {
         const overlapping = await tx.contract.findFirst({
           where: {
-            id: { not: id }, // Exclude current contract
+            id: { not: id as string }, // Exclude current contract
             employeeId: empId,
             status: 'ACTIVE',
             OR: [
@@ -189,7 +189,7 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
       }
 
       return await tx.contract.update({
-        where: { id },
+        where: { id: id as string },
         data
       });
     });

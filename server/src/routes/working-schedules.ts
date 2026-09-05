@@ -106,11 +106,11 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
     const schedule = await prisma.$transaction(async (tx) => {
       // If lines are provided, delete old ones and create new ones
       if (scheduleLines) {
-        await tx.scheduleLine.deleteMany({ where: { workingScheduleId: id } });
+        await tx.scheduleLine.deleteMany({ where: { workingScheduleId: id as string } });
       }
       
       return await tx.workingSchedule.update({
-        where: { id },
+        where: { id: id as string },
         data: {
           ...(name && { name }),
           ...(flexibleHours !== undefined && { flexibleHours }),

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchMyProfile, updateMyProfile, type Employee } from '../api/hr';
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

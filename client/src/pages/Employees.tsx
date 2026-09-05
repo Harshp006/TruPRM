@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   fetchEmployees, createEmployee, updateEmployee, fetchSchedules,
   type Employee, type WorkingSchedule
@@ -7,8 +8,6 @@ import {
 import { fetchUsers, type User } from '../api/users';
 
 import AttendanceToggleWidget from '../components/AttendanceToggleWidget';
-
-const DEPT_COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444'];
 
 function KanbanCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
   const color = emp.color || '#6366f1';
@@ -165,10 +164,12 @@ function EmployeeForm({
 }
 
 export default function EmployeesPage() {
+  const { user } = useAuth();
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
+  const [_schedules, setSchedules] = useState<WorkingSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [showForm, setShowForm] = useState(false);
@@ -237,10 +238,12 @@ export default function EmployeesPage() {
               Kanban
             </button>
           </div>
-          <button onClick={openCreate}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-            + New Employee
-          </button>
+          {canEdit && (
+            <button onClick={openCreate}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+              + New Employee
+            </button>
+          )}
         </div>
       </div>
 
@@ -288,7 +291,7 @@ export default function EmployeesPage() {
                 <SmartButton
                   label="Time Off"
                   count={detailEmployee._count?.timeOffRequests ?? 0}
-                  onClick={() => navigate(`/timeoff?employeeId=${detailEmployee.id}`)}
+                  onClick={() => navigate(`/time-off?employeeId=${detailEmployee.id}`)}
                 />
               </div>
 
@@ -355,10 +358,16 @@ export default function EmployeesPage() {
                 </div>
               )}
 
-              <button onClick={() => { closeDetail(); openEdit(detailEmployee); }}
-                className="mt-6 w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-                Edit Employee
-              </button>
+              {canEdit ? (
+                <button onClick={() => { closeDetail(); openEdit(detailEmployee); }}
+                  className="mt-6 w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                  Edit Employee
+                </button>
+              ) : (
+                <div className="mt-6 text-xs text-center text-slate-400">
+                  Read-only access for HR Payroll User
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchUsers, createUser, updateUser, resetPassword, type User } from '../api/users';
 import { fetchEmployees, type Employee } from '../api/hr';
-type SearchProps = {
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-};
 
 const ROLES = ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] as const;
 

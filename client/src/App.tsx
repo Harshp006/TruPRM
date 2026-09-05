@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, type Role } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -10,11 +10,16 @@ import UsersPage from './pages/Users';
 import EmployeesPage from './pages/Employees';
 import SchedulesPage from './pages/WorkingSchedules';
 import ContractsPage from './pages/Contracts';
-
-import AttendancePage from './pages/AttendancePage';
-import TimeOffPage from './pages/TimeOffPage';
+import AttendancePage from './pages/Attendance';
+import TimeOffPage from './pages/TimeOff';
+import SalaryStructuresPage from './pages/SalaryStructures';
+import SalaryRulesPage from './pages/SalaryRules';
+import PayrunsPage from './pages/Payruns';
+import PayslipsPage from './pages/Payslips';
 
 export default function App() {
+  const hrAndPayrollRoles: Role[] = ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'];
+
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -30,20 +35,27 @@ export default function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/timeoff" element={<TimeOffPage />} />
+              <Route path="/time-off" element={<TimeOffPage />} />
 
-              {/* HR and above */}
-              <Route
-                element={<ProtectedRoute allowedRoles={['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN']} />}
-              >
+              {/* Core HR & Payroll routes */}
+              <Route element={<ProtectedRoute allowedRoles={hrAndPayrollRoles} />}>
                 <Route path="/employees" element={<EmployeesPage />} />
                 <Route path="/contracts" element={<ContractsPage />} />
-              </Route>
-
-              {/* HR Managers and above */}
-              <Route
-                element={<ProtectedRoute allowedRoles={['HR_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN']} />}
-              >
                 <Route path="/working-schedules" element={<SchedulesPage />} />
+                
+                {/* Payruns routes */}
+                <Route path="/payruns" element={<PayrunsPage />} />
+                <Route path="/payroll/payruns" element={<PayrunsPage />} />
+                
+                {/* Payslips routes */}
+                <Route path="/payslips" element={<PayslipsPage />} />
+                <Route path="/payroll/payslips" element={<PayslipsPage />} />
+
+                {/* Salary Structures & Rules */}
+                <Route path="/salary-structures" element={<SalaryStructuresPage />} />
+                <Route path="/payroll/salary-structures" element={<SalaryStructuresPage />} />
+                <Route path="/salary-rules" element={<SalaryRulesPage />} />
+                <Route path="/payroll/salary-rules" element={<SalaryRulesPage />} />
               </Route>
 
               {/* Admin only */}

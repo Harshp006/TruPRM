@@ -12,6 +12,12 @@ import workingSchedulesRouter from './routes/working-schedules';
 import contractsRouter from './routes/contracts';
 import attendanceRouter from './routes/attendance';
 import timeoffRouter from './routes/timeoff';
+import timeOffRouter from './routes/time-off';
+import salaryStructuresRouter from './routes/salary-structures';
+import salaryRulesRouter from './routes/salary-rules';
+import payrunsRouter from './routes/payruns';
+import payslipsRouter from './routes/payslips';
+import dashboardRouter from './routes/dashboard';
 import { authenticate } from './middleware/authenticate';
 import { authorize } from './middleware/authorize';
 
@@ -19,9 +25,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN 
-    ? process.env.CLIENT_ORIGIN.split(',') 
-    : [/^http:\/\/localhost:\d+$/],
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());
@@ -38,6 +42,12 @@ app.use('/api/working-schedules', workingSchedulesRouter);
 app.use('/api/contracts', contractsRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/timeoff', timeoffRouter);
+app.use('/api/time-off', timeOffRouter);
+app.use('/api/salary-structures', salaryStructuresRouter);
+app.use('/api/salary-rules', salaryRulesRouter);
+app.use('/api/payruns', payrunsRouter);
+app.use('/api/payslips', payslipsRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 // ── Protected test routes ──────────────────────────────────────────────────
 // Any authenticated user

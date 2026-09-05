@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/login`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/auth/login`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
