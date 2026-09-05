@@ -6,6 +6,10 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 import authRouter from './routes/auth';
+import usersRouter from './routes/users';
+import employeesRouter from './routes/employees';
+import workingSchedulesRouter from './routes/working-schedules';
+import contractsRouter from './routes/contracts';
 import { authenticate } from './middleware/authenticate';
 import { authorize } from './middleware/authorize';
 
@@ -13,7 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  origin: process.env.CLIENT_ORIGIN
+    ? process.env.CLIENT_ORIGIN.split(',')
+    : [/^http:\/\/localhost:\d+$/],
   credentials: true,
 }));
 app.use(express.json());
@@ -24,6 +30,10 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 app.use('/auth', authRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/employees', employeesRouter);
+app.use('/api/working-schedules', workingSchedulesRouter);
+app.use('/api/contracts', contractsRouter);
 
 // ── Protected test routes ──────────────────────────────────────────────────
 // Any authenticated user

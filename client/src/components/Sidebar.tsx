@@ -1,32 +1,49 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { path: '/', label: 'Dashboard' },
-  { path: '/employees', label: 'Employees' },
-  { path: '/contracts', label: 'Contracts' },
-  { path: '/attendance', label: 'Attendance' },
-  { path: '/time-off', label: 'Time Off' },
-  { path: '/salary-structures', label: 'Salary Structures' },
-  { path: '/salary-rules', label: 'Salary Rules' },
-  { path: '/payruns', label: 'Payruns' },
-  { path: '/payslips', label: 'Payslips' },
-  { path: '/users', label: 'Users' },
-  { path: '/settings', label: 'Settings' },
+  { path: '/dashboard', label: 'Dashboard', roles: [] },
+  { path: '/employees', label: 'Employees', roles: ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] },
+  { path: '/working-schedules', label: 'Schedules', roles: ['HR_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'] },
+  { path: '/contracts', label: 'Contracts', roles: ['HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] },
+  { path: '/users', label: 'Users', roles: ['ADMIN'] },
 ];
 
 const Sidebar: React.FC = () => {
+  const { user, logout } = useAuth();
+  const location = useLocation();
+
   return (
-    <aside style={{ width: '250px', backgroundColor: '#fff', borderRight: '1px solid #e0e0e0', padding: '2rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      {navItems.map((item) => (
-        <Link 
-          key={item.path} 
-          to={item.path}
-          style={{ padding: '0.75rem 1rem', borderRadius: '4px', backgroundColor: '#f9f9f9', border: '1px solid #eee', display: 'block' }}
+    <aside className="w-64 bg-slate-900 text-white flex flex-col h-full">
+      <div className="p-4 text-xl font-bold border-b border-slate-700">
+        TruPRM
+      </div>
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        {navItems.map((item) => {
+          if (item.roles.length > 0 && user && !item.roles.includes(user.role)) return null;
+          
+          const isActive = location.pathname.startsWith(item.path);
+          return (
+            <Link 
+              key={item.path} 
+              to={item.path}
+              className={`block px-4 py-2 rounded-md ${isActive ? 'bg-indigo-600' : 'hover:bg-slate-800'}`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="p-4 border-t border-slate-700">
+        <div className="text-sm truncate mb-2">{user?.email}</div>
+        <button
+          onClick={logout}
+          className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-left text-sm"
         >
-          {item.label}
-        </Link>
-      ))}
+          Sign out
+        </button>
+      </div>
     </aside>
   );
 };

@@ -27,11 +27,15 @@ services:
     container_name: app
     ports:
       - "5000:5000"
+      - "5555:5555"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
       JWT_SECRET: ${JWT_SECRET}
       PORT: ${PORT}
+    volumes:
+      - ./server:/usr/src/app
+      - /usr/src/app/node_modules
     depends_on:
       - postgres
 

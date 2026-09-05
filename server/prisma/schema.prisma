@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(EMPLOYEE)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  employee     Employee?
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  role               Role      @default(EMPLOYEE)
+  mustChangePassword Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  employee           Employee?
 }
 
 model Employee {
@@ -23,6 +24,7 @@ model Employee {
   employeeNumber     String              @unique
   firstName          String
   lastName           String
+  color              String?
   dateOfBirth        DateTime?
   hireDate           DateTime
   jobTitle           String
