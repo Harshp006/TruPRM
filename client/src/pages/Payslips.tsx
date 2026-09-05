@@ -1,297 +1,443 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  fetchPayslips,
-  fetchPayslip,
-  getPayslipPdfUrl,
-  type PayslipDetail,
-} from '../api/payroll';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { SearchFilterBar, EmptyState, type FilterOption } from '../components/SearchFilterBar';
 
-export default function PayslipsPage() {
-  const { id: routePayslipId } = useParams();
-  const navigate = useNavigate();
+interface PayslipLine {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
 
-  const [payslips, setPayslips] = useState<any[]>([]);
-  const [detail, setDetail] = useState<PayslipDetail | null>(null);
+interface Payslip {
+  id: string;
+  payrunId: string;
+  employeeId: string;
+  periodStart: string;
+  periodEnd: string;
+  basicWage: number;
+  grossWage?: number;
+  netWage?: number;
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    employeeNumber: string;
+    jobTitle?: string;
+    department?: string;
+  };
+  salaryStructure?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  payrun?: {
+    id: string;
+    name: string;
+    state: string;
+  };
+  lines?: PayslipLine[];
+  breakdown?: {
+    earnings: PayslipLine[];
+    deductions: PayslipLine[];
+    employerContributions: PayslipLine[];
+    totalEmployerContribution: number;
+  };
+}
+
+const Payslips: React.FC = () => {
+  const { user, token } = useAuth();
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [payrunsList, setPayrunsList] = useState<Array<{ id: string; name: string }>>([]);
 
-  const loadList = async () => {
-    setLoading(true);
+  // Search & Multi-Filter States
+  const [search, setSearch] = useState('');
+  const [payrunFilter, setPayrunFilter] = useState('ALL');
+  const [deptFilter, setDeptFilter] = useState('ALL');
+  const [structureFilter, setStructureFilter] = useState('ALL');
+  const [sortOption, setSortOption] = useState('PERIOD_NEWEST');
+
+  // Detail Modal
+  const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [fetchingDetail, setFetchingDetail] = useState(false);
+
+  const fetchPayslips = async () => {
     try {
-      const data = await fetchPayslips();
-      setPayslips(data);
+      setLoading(true);
+      let url = 'http://localhost:5000/api/payslips';
+      if (payrunFilter !== 'ALL' && payrunFilter) {
+        url += `?payrunId=${payrunFilter}`;
+      }
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPayslips(data);
+      }
     } catch (err) {
-      console.error('Failed to load payslips:', err);
+      console.error('Error fetching payslips:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadDetail = async (id: string) => {
-    setLoading(true);
+  const fetchPayrunsList = async () => {
     try {
-      const data = await fetchPayslip(id);
-      setDetail(data);
+      const res = await fetch('http://localhost:5000/api/payruns', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPayrunsList(data.map((pr: any) => ({ id: pr.id, name: pr.name })));
+      }
     } catch (err) {
-      console.error('Failed to load payslip detail:', err);
-      navigate('/payroll/payslips');
-    } finally {
-      setLoading(false);
+      // Ignore if non-HR
     }
   };
 
   useEffect(() => {
-    if (routePayslipId) {
-      loadDetail(routePayslipId);
-    } else {
-      loadList();
+    if (token) {
+      fetchPayslips();
+      if (user?.role !== 'EMPLOYEE') {
+        fetchPayrunsList();
+      }
     }
-  }, [routePayslipId]);
+  }, [token, payrunFilter]);
 
-  // ──────────────────────────────────────────────────────────
-  // VIEW: PAYSLIP DETAIL & PDF DOWNLOAD
-  // ──────────────────────────────────────────────────────────
-  if (routePayslipId && detail) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header & Back */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <button
-              onClick={() => navigate('/payroll/payslips')}
-              className="text-sm text-indigo-600 hover:underline mb-2 block font-medium"
-            >
-              ← Back to All Payslips
-            </button>
-            <h1 className="text-2xl font-bold text-slate-800">
-              Payslip: {detail.employee.firstName} {detail.employee.lastName}
-            </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {detail.payrunName} · Period {new Date(detail.periodStart).toLocaleDateString()} —{' '}
-              {new Date(detail.periodEnd).toLocaleDateString()}
-            </p>
-          </div>
+  const handleOpenDetail = async (id: string) => {
+    try {
+      setFetchingDetail(true);
+      setIsDetailOpen(true);
+      const res = await fetch(`http://localhost:5000/api/payslips/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedPayslip(data);
+      }
+    } catch (err) {
+      console.error('Error fetching payslip detail:', err);
+    } finally {
+      setFetchingDetail(false);
+    }
+  };
 
-          <a
-            href={getPayslipPdfUrl(detail.id)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition inline-flex items-center gap-2"
-          >
-            <span>🖨️ Download / Print PDF</span>
-          </a>
-        </div>
+  // Dynamic Department Options from Payslips
+  const departmentOptions = useMemo(() => {
+    const list = Array.from(
+      new Set(payslips.map((p) => p.employee.department).filter(Boolean))
+    ).sort() as string[];
+    return [
+      { label: 'All Departments', value: 'ALL' },
+      ...list.map((d) => ({ label: d, value: d })),
+    ];
+  }, [payslips]);
 
-        {/* Employee & Payrun Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-            <h3 className="text-xs font-bold uppercase text-slate-400">Employee Details</h3>
-            <div className="text-base font-bold text-slate-800">
-              {detail.employee.firstName} {detail.employee.lastName}
-            </div>
-            <div className="text-xs text-slate-500 space-y-1">
-              <div>Employee ID: <strong className="text-slate-700">#{detail.employee.employeeNumber}</strong></div>
-              <div>Department: <strong className="text-slate-700">{detail.employee.department || 'N/A'}</strong></div>
-              <div>Position: <strong className="text-slate-700">{detail.employee.jobTitle}</strong></div>
-            </div>
-          </div>
+  // Dynamic Structure Options from Payslips
+  const structureOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    payslips.forEach((p) => {
+      if (p.salaryStructure) {
+        map.set(p.salaryStructure.id, p.salaryStructure.name);
+      }
+    });
+    const opts = Array.from(map.entries()).map(([id, name]) => ({
+      label: name,
+      value: id,
+    }));
+    return [{ label: 'All Structures', value: 'ALL' }, ...opts];
+  }, [payslips]);
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-            <h3 className="text-xs font-bold uppercase text-slate-400">Payroll Calculation Details</h3>
-            <div className="text-base font-bold text-slate-800">{detail.salaryStructure}</div>
-            <div className="text-xs text-slate-500 space-y-1">
-              <div>Worked Days: <strong className="text-slate-700">{detail.workedDays} Days</strong></div>
-              <div>Payrun Cycle: <strong className="text-slate-700">{detail.payrunName}</strong></div>
-              <div>Status: <strong className="text-green-600">Calculated from Real Database Rules</strong></div>
-            </div>
-          </div>
-        </div>
+  // Dynamic Pay Run Options
+  const payrunOptions = useMemo(() => {
+    return [
+      { label: 'All Pay Runs', value: 'ALL' },
+      ...payrunsList.map((pr) => ({ label: pr.name, value: pr.id })),
+    ];
+  }, [payrunsList]);
 
-        {/* Financial Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Basic Salary</span>
-            <p className="text-xl font-bold text-slate-800 mt-1">
-              ${Number(detail.basicWage).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Gross Earnings</span>
-            <p className="text-xl font-bold text-slate-800 mt-1">
-              ${Number(detail.grossWage).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Deductions</span>
-            <p className="text-xl font-bold text-red-600 mt-1">
-              -${Number(detail.totalDeductions).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Net Salary</span>
-            <p className="text-xl font-bold text-indigo-600 mt-1">
-              ${Number(detail.netWage).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
+  // Filters & Sorting logic
+  const filteredPayslips = useMemo(() => {
+    return payslips
+      .filter((p) => {
+        // Search
+        if (search.trim()) {
+          const q = search.toLowerCase().trim();
+          const empName = `${p.employee.firstName} ${p.employee.lastName}`.toLowerCase();
+          const empNum = p.employee.employeeNumber.toLowerCase();
+          const payslipId = p.id.toLowerCase();
+          const payrunName = p.payrun?.name.toLowerCase() || '';
 
-        {/* Detailed Salary Rule Lines Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200">
-            <h3 className="font-bold text-slate-800">Itemized Salary Breakdown (From Prisma DB)</h3>
-          </div>
+          const matches =
+            empName.includes(q) ||
+            empNum.includes(q) ||
+            payslipId.includes(q) ||
+            payrunName.includes(q);
+          if (!matches) return false;
+        }
 
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase">
-              <tr>
-                <th className="px-5 py-3 text-left">Code</th>
-                <th className="px-5 py-3 text-left">Rule Description</th>
-                <th className="px-5 py-3 text-left">Category</th>
-                <th className="px-5 py-3 text-right">Rate / Quantity</th>
-                <th className="px-5 py-3 text-right">Computed Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {detail.lines && detail.lines.length > 0 ? (
-                detail.lines.map((line) => (
-                  <tr key={line.id} className="hover:bg-slate-50/80">
-                    <td className="px-5 py-3.5 font-mono font-bold text-indigo-600 text-xs">{line.code}</td>
-                    <td className="px-5 py-3.5 font-medium text-slate-800">{line.name}</td>
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          line.category === 'BASIC'
-                            ? 'bg-blue-100 text-blue-800'
-                            : line.category === 'ALLOWANCE'
-                            ? 'bg-green-100 text-green-800'
-                            : line.category === 'DEDUCTION'
-                            ? 'bg-red-100 text-red-800'
-                            : line.category === 'GROSS'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}
-                      >
-                        {line.category}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-xs text-slate-500">
-                      {line.quantity} × ${Number(line.rate).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-bold text-slate-800">
-                      ${Number(line.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
-                    No computed lines found. Compute the payrun to generate salary breakdown lines.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
+        // Payrun Filter
+        if (payrunFilter !== 'ALL' && p.payrunId !== payrunFilter && p.payrun?.id !== payrunFilter) {
+          return false;
+        }
 
-  // ──────────────────────────────────────────────────────────
-  // VIEW: ALL PAYSLIPS LIST
-  // ──────────────────────────────────────────────────────────
-  const filtered = payslips.filter(
-    (ps) =>
-      ps.employee?.firstName?.toLowerCase().includes(search.toLowerCase()) ||
-      ps.employee?.lastName?.toLowerCase().includes(search.toLowerCase()) ||
-      ps.payrun?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      ps.employee?.employeeNumber?.toLowerCase().includes(search.toLowerCase())
-  );
+        // Department Filter
+        if (deptFilter !== 'ALL' && p.employee.department !== deptFilter) {
+          return false;
+        }
+
+        // Structure Filter
+        if (structureFilter !== 'ALL' && p.salaryStructure?.id !== structureFilter) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortOption === 'NET_WAGE_DESC') {
+          return Number(b.netWage || 0) - Number(a.netWage || 0);
+        }
+        if (sortOption === 'NET_WAGE_ASC') {
+          return Number(a.netWage || 0) - Number(b.netWage || 0);
+        }
+        if (sortOption === 'GROSS_WAGE_DESC') {
+          return Number(b.grossWage || 0) - Number(a.grossWage || 0);
+        }
+        if (sortOption === 'PERIOD_OLDEST') {
+          return new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime();
+        }
+        if (sortOption === 'EMP_NAME_ASC') {
+          return a.employee.firstName.localeCompare(b.employee.firstName);
+        }
+        // Default: PERIOD_NEWEST
+        return new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime();
+      });
+  }, [payslips, search, payrunFilter, deptFilter, structureFilter, sortOption]);
+
+  const handleClearAll = () => {
+    setSearch('');
+    setPayrunFilter('ALL');
+    setDeptFilter('ALL');
+    setStructureFilter('ALL');
+    setSortOption('PERIOD_NEWEST');
+  };
+
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
+    if (payrunFilter !== 'ALL') {
+      const prName = payrunsList.find((pr) => pr.id === payrunFilter)?.name || payrunFilter;
+      chips.push({ label: 'Pay Run', value: prName, onClear: () => setPayrunFilter('ALL') });
+    }
+    if (deptFilter !== 'ALL') {
+      chips.push({ label: 'Dept', value: deptFilter, onClear: () => setDeptFilter('ALL') });
+    }
+    if (structureFilter !== 'ALL') {
+      const sName =
+        structureOptions.find((s) => s.value === structureFilter)?.label || structureFilter;
+      chips.push({ label: 'Structure', value: sName, onClear: () => setStructureFilter('ALL') });
+    }
+    return chips;
+  }, [payrunFilter, deptFilter, structureFilter, payrunsList, structureOptions]);
+
+  const filtersConfig: FilterOption[] = useMemo(() => {
+    const list: FilterOption[] = [];
+    if (user?.role !== 'EMPLOYEE' && payrunOptions.length > 1) {
+      list.push({
+        key: 'payrun',
+        label: 'Pay Run',
+        value: payrunFilter,
+        options: payrunOptions,
+        onChange: setPayrunFilter,
+      });
+    }
+    if (departmentOptions.length > 1) {
+      list.push({
+        key: 'department',
+        label: 'Department',
+        value: deptFilter,
+        options: departmentOptions,
+        onChange: setDeptFilter,
+      });
+    }
+    if (structureOptions.length > 1) {
+      list.push({
+        key: 'structure',
+        label: 'Salary Structure',
+        value: structureFilter,
+        options: structureOptions,
+        onChange: setStructureFilter,
+      });
+    }
+    return list;
+  }, [user, payrunFilter, payrunOptions, deptFilter, departmentOptions, structureFilter, structureOptions]);
+
+  const sortOptionsConfig = [
+    { label: 'Sort: Period (Newest)', value: 'PERIOD_NEWEST' },
+    { label: 'Sort: Period (Oldest)', value: 'PERIOD_OLDEST' },
+    { label: 'Sort: Net Pay (High to Low)', value: 'NET_WAGE_DESC' },
+    { label: 'Sort: Net Pay (Low to High)', value: 'NET_WAGE_ASC' },
+    { label: 'Sort: Gross Pay (High to Low)', value: 'GROSS_WAGE_DESC' },
+    { label: 'Sort: Employee Name (A-Z)', value: 'EMP_NAME_ASC' },
+  ];
+
+  // Calculate totals
+  const totalGross = filteredPayslips.reduce((sum, p) => sum + Number(p.grossWage || 0), 0);
+  const totalNet = filteredPayslips.reduce((sum, p) => sum + Number(p.netWage || 0), 0);
+  const totalDeductions = totalGross - totalNet;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">All Employee Payslips</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Historical salary statements, line item breakdowns, and printable PDF documents
-        </p>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {user?.role === 'EMPLOYEE' ? 'My Payslips' : 'Employee Payslips'}
+          </h1>
+          <p className="text-slate-500 text-sm">
+            {user?.role === 'EMPLOYEE'
+              ? 'View and download your monthly salary statements.'
+              : 'Browse itemized earnings, deductions, and employer contributions.'}
+          </p>
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-        <input
-          type="text"
-          placeholder="Search payslips by employee name, payrun, or employee number..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-        />
-        <div className="text-xs text-slate-400 font-medium">Real Database Records</div>
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-emerald-50 text-emerald-600 font-bold rounded-xl text-lg">
+            ₹
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Net Salary
+            </div>
+            <div className="text-2xl font-bold text-slate-800">
+              ₹{totalNet.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-indigo-50 text-indigo-600 font-bold rounded-xl text-lg">
+            ₹
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Gross Earnings
+            </div>
+            <div className="text-2xl font-bold text-slate-800">
+              ₹{totalGross.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div className="p-3 bg-amber-50 text-amber-600 font-bold rounded-xl text-lg">
+            ₹
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Deductions
+            </div>
+            <div className="text-2xl font-bold text-slate-800">
+              ₹{totalDeductions.toLocaleString()}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Table */}
+      {/* Search & Filters */}
+      <SearchFilterBar
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search employee by name, ID, or payslip reference..."
+        filters={filtersConfig}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        sortOptions={sortOptionsConfig}
+        activeFilterChips={activeFilterChips}
+        onClearAll={handleClearAll}
+        resultsCount={filteredPayslips.length}
+        totalCount={payslips.length}
+        unitName="payslips"
+      />
+
+      {/* Table / Empty State */}
       {loading ? (
-        <div className="bg-white p-12 text-center text-slate-500 rounded-xl border border-slate-200">
-          Loading payslips from database...
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-500 font-semibold">
+          Loading payslips...
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white p-12 text-center text-slate-500 rounded-xl border border-slate-200">
-          No payslip records found.
-        </div>
+      ) : filteredPayslips.length === 0 ? (
+        <EmptyState
+          title="No Payslips Found"
+          description={
+            search || activeFilterChips.length > 0
+              ? 'No payslips match your current search and filter selections.'
+              : 'Payslips will appear once pay runs are generated and computed.'
+          }
+          hasActiveFilters={search.trim() !== '' || activeFilterChips.length > 0}
+          onClearFilters={handleClearAll}
+        />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {['Employee', 'Payrun', 'Period', 'Basic Salary', 'Gross Salary', 'Net Payable', 'Structure', 'Actions'].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                <th className="py-3 px-4">Employee</th>
+                <th className="py-3 px-4">Salary Structure</th>
+                <th className="py-3 px-4">Pay Period</th>
+                <th className="py-3 px-4">Basic Wage</th>
+                <th className="py-3 px-4">Gross Wage</th>
+                <th className="py-3 px-4">Net Wage</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {filtered.map((ps) => (
-                <tr key={ps.id} className="hover:bg-slate-50/80 transition">
-                  <td className="px-5 py-4 font-semibold text-slate-800">
-                    {ps.employee ? `${ps.employee.firstName} ${ps.employee.lastName}` : '—'}
-                    <div className="text-xs text-slate-400 font-normal">#{ps.employee?.employeeNumber}</div>
-                  </td>
-                  <td className="px-5 py-4 text-slate-700 font-medium">{ps.payrun?.name}</td>
-                  <td className="px-5 py-4 text-xs text-slate-500">
-                    {new Date(ps.periodStart).toLocaleDateString()} — {new Date(ps.periodEnd).toLocaleDateString()}
-                  </td>
-                  <td className="px-5 py-4 text-slate-700">${Number(ps.basicWage).toLocaleString()}</td>
-                  <td className="px-5 py-4 text-slate-700 font-medium">${Number(ps.grossWage || ps.basicWage).toLocaleString()}</td>
-                  <td className="px-5 py-4 font-bold text-indigo-600">
-                    ${Number(ps.netWage || ps.grossWage || ps.basicWage).toLocaleString()}
-                  </td>
-                  <td className="px-5 py-4 text-xs text-slate-500">
-                    {ps.salaryStructure?.name || 'Standard'}
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => navigate(`/payroll/payslips/${ps.id}`)}
-                        className="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2.5 py-1 rounded"
-                      >
-                        Inspect →
-                      </button>
-                      <a
-                        href={getPayslipPdfUrl(ps.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-600 hover:text-slate-900 text-xs font-medium"
-                      >
-                        PDF 🖨️
-                      </a>
+            <tbody className="divide-y divide-slate-100">
+              {filteredPayslips.map((p) => (
+                <tr key={p.id} className="hover:bg-slate-50 transition">
+                  <td className="py-3.5 px-4">
+                    <div className="font-medium text-slate-900">
+                      {p.employee.firstName} {p.employee.lastName}
                     </div>
+                    <div className="text-xs text-slate-400">
+                      #{p.employee.employeeNumber}
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-600">
+                    {p.salaryStructure ? (
+                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 font-medium text-xs rounded-md">
+                        {p.salaryStructure.name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs italic">Default</span>
+                    )}
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-600">
+                    {new Date(p.periodStart).toLocaleDateString()} -{' '}
+                    {new Date(p.periodEnd).toLocaleDateString()}
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-700">
+                    ₹{Number(p.basicWage || 0).toLocaleString()}
+                  </td>
+                  <td className="py-3.5 px-4 font-medium text-slate-800">
+                    ₹{Number(p.grossWage || 0).toLocaleString()}
+                  </td>
+                  <td className="py-3.5 px-4 font-bold text-indigo-600">
+                    ₹{Number(p.netWage || 0).toLocaleString()}
+                  </td>
+                  <td className="py-3.5 px-4 text-right">
+                    <button
+                      onClick={() => handleOpenDetail(p.id)}
+                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+                    >
+                      <span>View Payslip</span>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -299,6 +445,184 @@ export default function PayslipsPage() {
           </table>
         </div>
       )}
+
+      {/* Itemized Payslip Detail Modal */}
+      {isDetailOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Top Controls */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 print:hidden">
+              <span className="font-bold text-slate-700">Official Salary Statement</span>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition"
+                >
+                  <span>Print</span>
+                </button>
+                <button
+                  onClick={() => setIsDetailOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Statement Body */}
+            {fetchingDetail || !selectedPayslip ? (
+              <div className="p-12 text-center text-slate-500">
+                Loading payslip details...
+              </div>
+            ) : (
+              <div className="p-8 space-y-6 overflow-y-auto flex-1 font-sans">
+                {/* Payslip Header Card */}
+                <div className="flex justify-between items-start border-b border-slate-200 pb-6">
+                  <div>
+                    <div className="flex items-center space-x-2 text-indigo-600 font-bold text-xl">
+                      <span>PeoplePay360</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Payroll Management System
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block bg-slate-100 text-slate-700 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider">
+                      Payslip Statement
+                    </span>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Ref: #{selectedPayslip.id.slice(-8).toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Employee Info Grid */}
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-slate-400 font-semibold block">EMPLOYEE NAME</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {selectedPayslip.employee.firstName} {selectedPayslip.employee.lastName}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-semibold block">EMPLOYEE CODE</span>
+                    <span className="font-semibold text-slate-800">
+                      #{selectedPayslip.employee.employeeNumber}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-semibold block">PAYROLL PERIOD</span>
+                    <span className="font-semibold text-slate-800">
+                      {new Date(selectedPayslip.periodStart).toLocaleDateString()} -{' '}
+                      {new Date(selectedPayslip.periodEnd).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-semibold block">SALARY STRUCTURE</span>
+                    <span className="font-semibold text-indigo-700">
+                      {selectedPayslip.salaryStructure?.name || 'Standard Structure'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Breakdown Tables Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* EARNINGS */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-100 text-emerald-800 font-bold text-xs uppercase tracking-wider flex justify-between">
+                      <span>Earnings Line Items</span>
+                      <span>Amount</span>
+                    </div>
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedPayslip.breakdown?.earnings.map((line) => (
+                          <tr key={line.id} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-4 font-medium text-slate-700">
+                              {line.name} ({line.code})
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-bold text-slate-800">
+                              ₹{Number(line.amount).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* DEDUCTIONS */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="bg-rose-50 px-4 py-2.5 border-b border-rose-100 text-rose-800 font-bold text-xs uppercase tracking-wider flex justify-between">
+                      <span>Deduction Line Items</span>
+                      <span>Amount</span>
+                    </div>
+                    <table className="w-full text-xs">
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedPayslip.breakdown?.deductions.map((line) => (
+                          <tr key={line.id} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-4 font-medium text-slate-700">
+                              {line.name} ({line.code})
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-bold text-rose-600">
+                              ₹{Number(line.amount).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* EMPLOYER CONTRIBUTIONS (DISTINCT & SEPARATE) */}
+                {selectedPayslip.breakdown?.employerContributions &&
+                  selectedPayslip.breakdown.employerContributions.length > 0 && (
+                    <div className="border border-indigo-100 rounded-xl overflow-hidden bg-indigo-50/30">
+                      <div className="bg-indigo-100/60 px-4 py-2.5 border-b border-indigo-200 text-indigo-900 font-bold text-xs uppercase tracking-wider flex justify-between">
+                        <span>Employer Contributions (Excluded from Net Salary)</span>
+                        <span>Amount</span>
+                      </div>
+                      <table className="w-full text-xs">
+                        <tbody className="divide-y divide-indigo-100/50">
+                          {selectedPayslip.breakdown.employerContributions.map((line) => (
+                            <tr key={line.id}>
+                              <td className="py-2 px-4 font-medium text-indigo-800">
+                                {line.name} ({line.code})
+                              </td>
+                              <td className="py-2 px-4 text-right font-bold text-indigo-900">
+                                ₹{Number(line.amount).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                {/* PAYSLIP TOTALS FOOTER */}
+                <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="space-y-1 text-xs text-slate-300">
+                    <div>
+                      Gross Earnings: <span className="font-semibold text-white">₹{Number(selectedPayslip.grossWage || 0).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      Total Deductions: <span className="font-semibold text-rose-300">₹{(Number(selectedPayslip.grossWage || 0) - Number(selectedPayslip.netWage || 0)).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-indigo-300 uppercase font-semibold tracking-wider">
+                      NET PAYABLE SALARY
+                    </div>
+                    <div className="text-3xl font-extrabold text-emerald-400">
+                      ₹{Number(selectedPayslip.netWage || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default Payslips;

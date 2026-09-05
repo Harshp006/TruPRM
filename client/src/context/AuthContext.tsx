@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:logout', logout);
   }, [logout]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
     const res = await fetch(
       `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/auth/login`,
       {

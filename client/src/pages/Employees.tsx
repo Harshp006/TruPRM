@@ -165,7 +165,7 @@ function EmployeeForm({
 
 export default function EmployeesPage() {
   const { user } = useAuth();
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
+  const canManageEmployees = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -238,7 +238,7 @@ export default function EmployeesPage() {
               Kanban
             </button>
           </div>
-          {canEdit && (
+          {canManageEmployees && (
             <button onClick={openCreate}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
               + New Employee
@@ -358,7 +358,7 @@ export default function EmployeesPage() {
                 </div>
               )}
 
-              {canEdit ? (
+              {canManageEmployees ? (
                 <button onClick={() => { closeDetail(); openEdit(detailEmployee); }}
                   className="mt-6 w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                   Edit Employee
@@ -430,8 +430,13 @@ export default function EmployeesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <button onClick={e => { e.stopPropagation(); openEdit(emp); }}
-                      className="text-indigo-600 hover:text-indigo-800 font-medium">Edit</button>
+                    {canManageEmployees ? (
+                      <button onClick={e => { e.stopPropagation(); openEdit(emp); }}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium">Edit</button>
+                    ) : (
+                      <button onClick={e => { e.stopPropagation(); setDetailEmployee(emp); }}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium">View</button>
+                    )}
                   </td>
                 </tr>
               ))}

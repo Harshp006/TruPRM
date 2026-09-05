@@ -1,751 +1,742 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  fetchPayruns,
-  fetchPayrun,
-  previewPayrunEmployees,
-  createPayrun,
-  computePayrun,
-  validatePayrun,
-  markPayrunPaid,
-  sendPayslips,
-  fetchSalaryStructures,
-  type Payrun,
-  type PreviewResult,
-  type SalaryStructure,
-} from '../api/payroll';
+import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
 
-const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
-  DRAFT: { label: 'Draft', badge: 'bg-slate-100 text-slate-700 border-slate-300' },
-  COMPUTED: { label: 'Computed', badge: 'bg-blue-100 text-blue-800 border-blue-300' },
-  VALIDATED: { label: 'Validated', badge: 'bg-amber-100 text-amber-800 border-amber-300' },
-  PAID: { label: 'Paid', badge: 'bg-green-100 text-green-800 border-green-300' },
-};
+interface Payrun {
+  id: string;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  state: 'DRAFT' | 'DONE' | 'CANCELLED';
+  notes?: string;
+  createdAt: string;
+  totalGross?: number;
+  totalNet?: number;
+  _count?: {
+    payslips?: number;
+  };
+  payslips?: Array<{
+    id: string;
+    employeeId: string;
+    basicWage: number;
+    grossWage?: number;
+    netWage?: number;
+    employee: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      employeeNumber: string;
+      department?: string;
+    };
+    salaryStructure?: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  }>;
+}
 
-export default function PayrunsPage() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activePayrunId = searchParams.get('id');
-  const isWizardMode = searchParams.get('mode') === 'new';
+interface ValidationWarning {
+  employeeId: string;
+  employeeName: string;
+  severity: 'ERROR' | 'WARNING';
+  code: string;
+  message: string;
+}
 
-  // Can mark paid is strictly restricted from HR_PAYROLL_USER
-  const canMarkPaid = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_ADMIN' || user?.role === 'HR_MANAGER';
-
+const Payruns: React.FC = () => {
+  const { user, token } = useAuth();
   const [payruns, setPayruns] = useState<Payrun[]>([]);
-  const [currentPayrun, setCurrentPayrun] = useState<Payrun | null>(null);
-  const [structures, setStructures] = useState<SalaryStructure[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  
+  // Search & Filter State
+  const [search, setSearch] = useState('');
+  const [stateFilter, setStateFilter] = useState('ALL');
+  const [periodFilter, setPeriodFilter] = useState('ALL');
+  const [sortOption, setSortOption] = useState('PERIOD_DESC');
 
-  // Wizard State (Step 1 & Step 2)
-  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
-  const [wizardName, setWizardName] = useState('');
-  const [wizardStructureId, setWizardStructureId] = useState('');
-  const [wizardStartDate, setWizardStartDate] = useState(new Date().toISOString().slice(0, 8) + '01');
-  const [wizardEndDate, setWizardEndDate] = useState(new Date().toISOString().slice(0, 10));
-  const [wizardPreview, setWizardPreview] = useState<PreviewResult | null>(null);
-  const [selectedEmpIds, setSelectedEmpIds] = useState<string[]>([]);
-  const [wizardSearch, setWizardSearch] = useState('');
-  const [wizardError, setWizardError] = useState('');
+  // Modals
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedPayrun, setSelectedPayrun] = useState<Payrun | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const loadPayrunsList = async () => {
-    setLoading(true);
+  // Form State
+  const [formName, setFormName] = useState('');
+  const [formPeriodStart, setFormPeriodStart] = useState('');
+  const [formPeriodEnd, setFormPeriodEnd] = useState('');
+  const [formNotes, setFormNotes] = useState('');
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  // Validation State
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean;
+    warnings: ValidationWarning[];
+  } | null>(null);
+
+  // Computing State
+  const [computing, setComputing] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState('');
+
+  // Role permissions
+  const isHRUser = user?.role === 'HR_PAYROLL_USER' || user?.role === 'ADMIN';
+  const isHRManagerViewOnly = user?.role === 'HR_PAYROLL_ADMIN' || user?.role === 'HR_MANAGER';
+
+  const fetchPayruns = async () => {
     try {
-      const [pData, sData] = await Promise.all([fetchPayruns(), fetchSalaryStructures()]);
-      setPayruns(pData);
-      setStructures(sData);
-      if (sData.length > 0 && !wizardStructureId) {
-        setWizardStructureId(sData[0].id);
+      setLoading(true);
+      const res = await fetch('http://localhost:5000/api/payruns', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPayruns(data);
       }
     } catch (err) {
-      console.error('Failed to load payruns:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPayrunDetail = async (id: string) => {
-    setLoading(true);
-    try {
-      const p = await fetchPayrun(id);
-      setCurrentPayrun(p);
-    } catch (err) {
-      console.error('Failed to load payrun detail:', err);
-      setSearchParams({});
+      console.error('Error fetching payruns:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (activePayrunId) {
-      loadPayrunDetail(activePayrunId);
-    } else {
-      loadPayrunsList();
+    if (token) {
+      fetchPayruns();
     }
-  }, [activePayrunId, isWizardMode]);
+  }, [token]);
 
-  // Wizard Step 1 -> Step 2
-  const handlePreviewEmployees = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!wizardStartDate || !wizardEndDate) {
-      setWizardError('Start and end dates are required');
-      return;
-    }
-
-    setWizardError('');
-    setActionLoading(true);
+  const fetchPayrunDetail = async (id: string) => {
     try {
-      const preview = await previewPayrunEmployees({
-        salaryStructureId: wizardStructureId || undefined,
-        periodStart: wizardStartDate,
-        periodEnd: wizardEndDate,
+      const res = await fetch(`http://localhost:5000/api/payruns/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setWizardPreview(preview);
-      // Auto-select eligible employees
-      const eligibleIds = preview.employees.filter((emp) => emp.isEligible).map((emp) => emp.employeeId);
-      setSelectedEmpIds(eligibleIds);
-      if (!wizardName) {
-        const monthName = new Date(wizardStartDate).toLocaleString('default', { month: 'long', year: 'numeric' });
-        setWizardName(`${monthName} Payroll Payrun`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedPayrun(data);
       }
-      setWizardStep(2);
-    } catch (err: any) {
-      setWizardError(err.response?.data?.message || 'Failed to preview eligible employees');
-    } finally {
-      setActionLoading(false);
+    } catch (err) {
+      console.error('Error fetching payrun detail:', err);
     }
   };
 
-  // Wizard Step 2 -> Create Payrun
-  const handleCreatePayrun = async () => {
-    if (!wizardName || selectedEmpIds.length === 0) {
-      setWizardError('Name and at least one employee must be selected');
+  const handleOpenDetail = (pr: Payrun) => {
+    setSelectedPayrun(pr);
+    setValidationResult(null);
+    setActionSuccess('');
+    setIsDetailOpen(true);
+    fetchPayrunDetail(pr.id);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!formName || !formPeriodStart || !formPeriodEnd) {
+      setFormError('Please fill in all required fields.');
       return;
     }
 
-    setWizardError('');
-    setActionLoading(true);
     try {
-      const created = await createPayrun({
-        name: wizardName,
-        salaryStructureId: wizardStructureId || undefined,
-        periodStart: wizardStartDate,
-        periodEnd: wizardEndDate,
-        employeeIds: selectedEmpIds,
+      setFormSubmitting(true);
+      const res = await fetch('http://localhost:5000/api/payruns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: formName,
+          periodStart: formPeriodStart,
+          periodEnd: formPeriodEnd,
+          notes: formNotes,
+        }),
       });
-      setSearchParams({ id: created.id });
-    } catch (err: any) {
-      setWizardError(err.response?.data?.message || 'Failed to create payrun');
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
-  // Payrun Action handlers
-  const handleCompute = async () => {
-    if (!currentPayrun) return;
-    setActionLoading(true);
-    try {
-      await computePayrun(currentPayrun.id);
-      await loadPayrunDetail(currentPayrun.id);
+      if (res.ok) {
+        const newPr = await res.json();
+        setIsCreateOpen(false);
+        setFormName('');
+        setFormPeriodStart('');
+        setFormPeriodEnd('');
+        setFormNotes('');
+        fetchPayruns();
+        handleOpenDetail(newPr);
+      } else {
+        const errData = await res.json();
+        setFormError(errData.message || 'Failed to create pay run.');
+      }
     } catch (err) {
-      alert('Compute payrun failed');
+      setFormError('Network error while creating pay run.');
     } finally {
-      setActionLoading(false);
+      setFormSubmitting(false);
     }
   };
 
   const handleValidate = async () => {
-    if (!currentPayrun) return;
-    setActionLoading(true);
+    if (!selectedPayrun || !isHRUser) return;
     try {
-      await validatePayrun(currentPayrun.id);
-      await loadPayrunDetail(currentPayrun.id);
+      setValidating(true);
+      setActionSuccess('');
+      const res = await fetch(`http://localhost:5000/api/payruns/${selectedPayrun.id}/validate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setValidationResult(data);
+      }
     } catch (err) {
-      alert('Validate payrun failed');
+      console.error('Validation error:', err);
     } finally {
-      setActionLoading(false);
+      setValidating(false);
     }
   };
 
-  const handleMarkPaid = async () => {
-    if (!currentPayrun) return;
-    if (!window.confirm('Are you sure you want to mark this payrun as PAID?')) return;
-    setActionLoading(true);
+  const handleCompute = async () => {
+    if (!selectedPayrun || !isHRUser) return;
     try {
-      await markPayrunPaid(currentPayrun.id);
-      await loadPayrunDetail(currentPayrun.id);
+      setComputing(true);
+      setActionSuccess('');
+      const res = await fetch(`http://localhost:5000/api/payruns/${selectedPayrun.id}/compute`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedPayrun(updated);
+        setActionSuccess('Payroll successfully computed for all employees!');
+        fetchPayruns();
+      }
     } catch (err) {
-      alert('Mark paid failed');
+      console.error('Compute error:', err);
     } finally {
-      setActionLoading(false);
+      setComputing(false);
     }
   };
 
-  const handleSendPayslips = async () => {
-    if (!currentPayrun) return;
-    setActionLoading(true);
+  const handleStateChange = async (newState: 'DRAFT' | 'DONE' | 'CANCELLED') => {
+    if (!selectedPayrun || !isHRUser) return;
     try {
-      await sendPayslips(currentPayrun.id);
-      alert('Payslips sent to employees successfully!');
+      const res = await fetch(`http://localhost:5000/api/payruns/${selectedPayrun.id}/state`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ state: newState }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedPayrun(updated);
+        setActionSuccess(`Pay Run state updated to ${newState}`);
+        fetchPayruns();
+      }
     } catch (err) {
-      alert('Send payslips failed');
-    } finally {
-      setActionLoading(false);
+      console.error('State change error:', err);
     }
   };
 
-  // ──────────────────────────────────────────────────────────
-  // VIEW: 2-STEP NEW PAYRUN WIZARD
-  // ──────────────────────────────────────────────────────────
-  if (isWizardMode) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">New Payrun Wizard</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Step {wizardStep} of 2: {wizardStep === 1 ? 'Configure Pay Period & Structure' : 'Review & Select Eligible Employees'}
-            </p>
+  const handleDelete = async (id: string) => {
+    if (!isHRUser) return;
+    if (!window.confirm('Are you sure you want to delete this Pay Run?')) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/payruns/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        fetchPayruns();
+        if (selectedPayrun?.id === id) {
+          setIsDetailOpen(false);
+        }
+      }
+    } catch (err) {
+      console.error('Delete payrun error:', err);
+    }
+  };
+
+  // Search & Filter computation
+  const filteredPayruns = useMemo(() => {
+    const now = new Date();
+    let result = payruns.filter((pr) => {
+      // 1. Search Query: Pay Run Name, ID, or employee names inside payslips
+      const q = search.toLowerCase().trim();
+      const matchesName = pr.name.toLowerCase().includes(q) || pr.id.toLowerCase().includes(q);
+      const matchesEmployeeInPayrun = pr.payslips?.some(p =>
+        `${p.employee.firstName} ${p.employee.lastName}`.toLowerCase().includes(q) ||
+        p.employee.employeeNumber.toLowerCase().includes(q)
+      );
+      const matchesSearch = !q || matchesName || matchesEmployeeInPayrun;
+
+      // 2. State Filter
+      const matchesState = stateFilter === 'ALL' || pr.state === stateFilter;
+
+      // 3. Period Filter
+      let matchesPeriod = true;
+      if (periodFilter === 'CURRENT_MONTH') {
+        const d = new Date(pr.periodStart);
+        matchesPeriod = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      } else if (periodFilter === 'PREVIOUS_MONTH') {
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const d = new Date(pr.periodStart);
+        matchesPeriod = d.getMonth() === prevMonthDate.getMonth() && d.getFullYear() === prevMonthDate.getFullYear();
+      }
+
+      return matchesSearch && matchesState && matchesPeriod;
+    });
+
+    // Sort Options
+    result.sort((a, b) => {
+      if (sortOption === 'PERIOD_DESC') {
+        return new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime();
+      } else if (sortOption === 'NAME_ASC') {
+        return a.name.localeCompare(b.name);
+      } else if (sortOption === 'TOTAL_DESC') {
+        return (b.totalNet || 0) - (a.totalNet || 0);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [payruns, search, stateFilter, periodFilter, sortOption]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
+    if (stateFilter !== 'ALL') chips.push({ label: 'Status', value: stateFilter, onClear: () => setStateFilter('ALL') });
+    if (periodFilter !== 'ALL') chips.push({ label: 'Period', value: periodFilter.replace('_', ' '), onClear: () => setPeriodFilter('ALL') });
+    return chips;
+  }, [stateFilter, periodFilter]);
+
+  const handleClearAllFilters = () => {
+    setSearch('');
+    setStateFilter('ALL');
+    setPeriodFilter('ALL');
+    setSortOption('PERIOD_DESC');
+  };
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Pay Runs</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            {isHRUser
+              ? 'Create, validate, compute, and approve monthly employee payroll runs.'
+              : 'Read-only view of processed pay runs and finalized employee payslips.'}
+          </p>
+        </div>
+
+        {/* Read-Only Badge for HR Payroll Manager */}
+        {isHRManagerViewOnly && (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold shadow-2xs">
+            <span>🔒</span> HR Manager Read-Only Access
           </div>
+        )}
+
+        {isHRUser && (
           <button
-            onClick={() => setSearchParams({})}
-            className="text-sm text-slate-500 hover:text-slate-800 font-medium"
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition"
           >
-            ← Cancel & Return
+            <span>+ Create Pay Run</span>
           </button>
-        </div>
-
-        {/* Wizard Progress Bar */}
-        <div className="grid grid-cols-2 gap-3 text-sm font-semibold">
-          <div
-            className={`p-3 rounded-xl border flex items-center gap-3 ${
-              wizardStep === 1
-                ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
-                : 'bg-white border-slate-200 text-slate-500'
-            }`}
-          >
-            <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">
-              1
-            </span>
-            <span>1. Period & Structure</span>
-          </div>
-          <div
-            className={`p-3 rounded-xl border flex items-center gap-3 ${
-              wizardStep === 2
-                ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
-                : 'bg-white border-slate-200 text-slate-500'
-            }`}
-          >
-            <span className="w-6 h-6 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-xs">
-              2
-            </span>
-            <span>2. Select Employees & Review</span>
-          </div>
-        </div>
-
-        {wizardStep === 1 ? (
-          /* STEP 1: CONFIGURATION (DOES NOT PERSIST TO DB) */
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-            <form onSubmit={handlePreviewEmployees} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Payrun Name (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. September 2026 Monthly Payroll"
-                  value={wizardName}
-                  onChange={(e) => setWizardName(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Period Start Date *</label>
-                  <input
-                    type="date"
-                    value={wizardStartDate}
-                    onChange={(e) => setWizardStartDate(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Period End Date *</label>
-                  <input
-                    type="date"
-                    value={wizardEndDate}
-                    onChange={(e) => setWizardEndDate(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Default Salary Structure</label>
-                <select
-                  value={wizardStructureId}
-                  onChange={(e) => setWizardStructureId(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                >
-                  <option value="">— Use Employee Contract Structure —</option>
-                  {structures.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {wizardError && <p className="text-sm text-red-600">{wizardError}</p>}
-
-              <div className="pt-4 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-                >
-                  {actionLoading ? 'Scanning Employees...' : 'Continue to Employee Selection →'}
-                </button>
-              </div>
-            </form>
-          </div>
-        ) : (
-          /* STEP 2: EMPLOYEE SELECTION & WARNINGS CHECK */
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <input
-                type="text"
-                placeholder="Search eligible employees..."
-                value={wizardSearch}
-                onChange={(e) => setWizardSearch(e.target.value)}
-                className="w-72 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-              <div className="text-sm font-medium text-slate-600">
-                Selected: <strong className="text-indigo-600">{selectedEmpIds.length}</strong> /{' '}
-                {wizardPreview?.employees.length ?? 0}
-              </div>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={
-                          wizardPreview?.employees.length === selectedEmpIds.length &&
-                          selectedEmpIds.length > 0
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked && wizardPreview) {
-                            setSelectedEmpIds(wizardPreview.employees.map((emp) => emp.employeeId));
-                          } else {
-                            setSelectedEmpIds([]);
-                          }
-                        }}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Employee</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Department</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Wage</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Structure</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Warnings</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {wizardPreview?.employees
-                    .filter(
-                      (emp) =>
-                        emp.firstName.toLowerCase().includes(wizardSearch.toLowerCase()) ||
-                        emp.lastName.toLowerCase().includes(wizardSearch.toLowerCase()) ||
-                        emp.employeeNumber.toLowerCase().includes(wizardSearch.toLowerCase())
-                    )
-                    .map((emp) => {
-                      const isSelected = selectedEmpIds.includes(emp.employeeId);
-                      return (
-                        <tr key={emp.employeeId} className={isSelected ? 'bg-indigo-50/30' : ''}>
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedEmpIds((prev) => [...prev, emp.employeeId]);
-                                } else {
-                                  setSelectedEmpIds((prev) => prev.filter((id) => id !== emp.employeeId));
-                                }
-                              }}
-                              className="rounded text-indigo-600 focus:ring-indigo-500"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-800">
-                              {emp.firstName} {emp.lastName}
-                            </div>
-                            <div className="text-xs text-slate-400">#{emp.employeeNumber}</div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">{emp.department}</td>
-                          <td className="px-4 py-3 font-semibold text-slate-800">
-                            {emp.contract ? `$${Number(emp.contract.wageAmount).toLocaleString()}` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-slate-600">
-                            {emp.contract?.salaryStructure || 'Standard'}
-                          </td>
-                          <td className="px-4 py-3">
-                            {emp.warnings.length > 0 ? (
-                              <div className="space-y-1">
-                                {emp.warnings.map((w, idx) => (
-                                  <span
-                                    key={idx}
-                                    className={`inline-block px-2 py-0.5 rounded text-xs font-medium mr-1 ${
-                                      w.severity === 'ERROR'
-                                        ? 'bg-red-100 text-red-700'
-                                        : w.severity === 'WARNING'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-blue-100 text-blue-700'
-                                    }`}
-                                  >
-                                    {w.message}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-green-600 text-xs font-medium">✓ Ready</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-
-            {wizardError && <p className="text-sm text-red-600">{wizardError}</p>}
-
-            <div className="pt-4 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setWizardStep(1)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-              >
-                ← Back to Step 1
-              </button>
-              <button
-                type="button"
-                onClick={handleCreatePayrun}
-                disabled={actionLoading || selectedEmpIds.length === 0}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-              >
-                {actionLoading ? 'Creating Payrun...' : 'Create & Persist Payrun →'}
-              </button>
-            </div>
-          </div>
         )}
       </div>
-    );
-  }
 
-  // ──────────────────────────────────────────────────────────
-  // VIEW: PAYRUN DETAIL VIEW
-  // ──────────────────────────────────────────────────────────
-  if (activePayrunId && currentPayrun) {
-    const statusMeta = STATUS_CONFIG[currentPayrun.status] || STATUS_CONFIG.DRAFT;
+      {/* Unified Search & Filter Control Bar */}
+      <SearchFilterBar
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search pay runs by name, period, or employee #..."
+        filters={[
+          {
+            key: 'state',
+            label: 'Status',
+            value: stateFilter,
+            options: [
+              { label: 'All Statuses', value: 'ALL' },
+              { label: 'Draft', value: 'DRAFT' },
+              { label: 'Done (Approved)', value: 'DONE' },
+              { label: 'Cancelled', value: 'CANCELLED' },
+            ],
+            onChange: setStateFilter,
+          },
+          {
+            key: 'period',
+            label: 'Payroll Period',
+            value: periodFilter,
+            options: [
+              { label: 'All Periods', value: 'ALL' },
+              { label: 'Current Month', value: 'CURRENT_MONTH' },
+              { label: 'Previous Month', value: 'PREVIOUS_MONTH' },
+            ],
+            onChange: setPeriodFilter,
+          },
+        ]}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        sortOptions={[
+          { label: 'Sort: Period (Newest)', value: 'PERIOD_DESC' },
+          { label: 'Sort: Name (A-Z)', value: 'NAME_ASC' },
+          { label: 'Sort: Total Net Pay', value: 'TOTAL_DESC' },
+        ]}
+        activeFilterChips={activeFilterChips}
+        onClearAll={handleClearAllFilters}
+        resultsCount={filteredPayruns.length}
+        totalCount={payruns.length}
+        unitName="pay runs"
+      />
 
-    return (
-      <div className="space-y-6">
-        {/* Detail Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <button
-              onClick={() => setSearchParams({})}
-              className="text-sm text-indigo-600 hover:underline mb-2 block font-medium"
-            >
-              ← Back to Payruns List
-            </button>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-800">{currentPayrun.name}</h1>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusMeta.badge}`}>
-                {statusMeta.label}
-              </span>
-            </div>
-            <p className="text-sm text-slate-500 mt-1">
-              Period: {new Date(currentPayrun.periodStart).toLocaleDateString()} —{' '}
-              {new Date(currentPayrun.periodEnd).toLocaleDateString()}
-            </p>
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center text-slate-500 space-y-3">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+            <p className="text-sm font-medium">Loading pay runs...</p>
           </div>
-
-          {/* Role-Aware Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            {currentPayrun.status === 'DRAFT' && (
-              <button
-                onClick={handleCompute}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-              >
-                {actionLoading ? 'Computing...' : 'Compute Payrun'}
-              </button>
-            )}
-
-            {currentPayrun.status === 'COMPUTED' && (
-              <>
-                <button
-                  onClick={handleCompute}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
-                >
-                  {actionLoading ? 'Recomputing...' : 'Recompute'}
-                </button>
-                <button
-                  onClick={handleValidate}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-                >
-                  {actionLoading ? 'Validating...' : 'Validate Payrun'}
-                </button>
-              </>
-            )}
-
-            {currentPayrun.status === 'VALIDATED' && (
-              <>
-                <button
-                  onClick={handleSendPayslips}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-                >
-                  Send Payslips
-                </button>
-                {/* Mark Paid: ONLY for HR Payroll Manager / Admin */}
-                {canMarkPaid && (
-                  <button
-                    onClick={handleMarkPaid}
-                    disabled={actionLoading}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm transition disabled:opacity-50"
-                  >
-                    Mark Paid
-                  </button>
-                )}
-              </>
-            )}
-
-            {currentPayrun.status === 'PAID' && (
-              <span className="px-3 py-1.5 bg-green-50 text-green-700 text-xs font-bold rounded-lg border border-green-200">
-                ✓ Payrun Fully Settled
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Financial Metrics Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total Basic</span>
-            <p className="text-xl font-bold text-slate-800 mt-1">
-              ${(currentPayrun.totalBasic || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Gross Earnings</span>
-            <p className="text-xl font-bold text-slate-800 mt-1">
-              ${(currentPayrun.totalGross || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total Deductions</span>
-            <p className="text-xl font-bold text-red-600 mt-1">
-              -${(currentPayrun.totalDeductions || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Net Payable</span>
-            <p className="text-xl font-bold text-indigo-600 mt-1">
-              ${(currentPayrun.totalNet || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-
-        {/* Warnings Banner if any */}
-        {currentPayrun.warnings && currentPayrun.warnings.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2">
-            <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
-              ⚠️ Payroll Computation Warnings ({currentPayrun.warnings.length})
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {currentPayrun.warnings.map((w, i) => (
-                <div key={i} className="flex items-center gap-2 text-amber-900 bg-amber-100/50 p-2 rounded">
-                  <span
-                    className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${
-                      w.severity === 'ERROR' ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-800'
-                    }`}
-                  >
-                    {w.severity}
-                  </span>
-                  <span>{w.message}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Payslips Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-            <h3 className="font-bold text-slate-800">Generated Payslips ({currentPayrun.payslips?.length || 0})</h3>
-            <span className="text-xs text-slate-400">Click a payslip to view line breakdown and PDF</span>
-          </div>
-
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {['Employee', 'Worked Days', 'Basic Wage', 'Gross Wage', 'Net Wage', 'Lines', 'Warnings', 'Action'].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+        ) : filteredPayruns.length === 0 ? (
+          <EmptyState
+            title="No Pay Runs Found"
+            description="No pay runs match your search query or selected status filter."
+            hasActiveFilters={search.trim() !== '' || activeFilterChips.length > 0}
+            onClearFilters={handleClearAllFilters}
+          />
+        ) : (
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                <th className="py-3.5 px-4">Pay Run Name</th>
+                <th className="py-3.5 px-4">Period</th>
+                <th className="py-3.5 px-4 text-center">Employees</th>
+                <th className="py-3.5 px-4">Total Net Pay</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {currentPayrun.payslips?.map((ps) => (
-                <tr key={ps.id} className="hover:bg-slate-50/80 transition">
-                  <td className="px-5 py-4">
-                    <div className="font-semibold text-slate-800">
-                      {ps.employee ? `${ps.employee.firstName} ${ps.employee.lastName}` : '—'}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      #{ps.employee?.employeeNumber} · {ps.employee?.department || 'General'}
-                    </div>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {filteredPayruns.map((pr) => (
+                <tr key={pr.id} className="hover:bg-indigo-50/40 transition">
+                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                    {pr.name}
                   </td>
-                  <td className="px-5 py-4 text-slate-600 font-medium">{ps.workedDays} days</td>
-                  <td className="px-5 py-4 text-slate-700">${Number(ps.basicWage).toLocaleString()}</td>
-                  <td className="px-5 py-4 text-slate-700 font-semibold">${Number(ps.grossWage).toLocaleString()}</td>
-                  <td className="px-5 py-4 font-bold text-indigo-600">${Number(ps.netWage).toLocaleString()}</td>
-                  <td className="px-5 py-4 text-xs text-slate-500">{ps.linesCount || 7} lines</td>
-                  <td className="px-5 py-4">
-                    {ps.warnings && ps.warnings.length > 0 ? (
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                        {ps.warnings.length} warning(s)
-                      </span>
-                    ) : (
-                      <span className="text-green-600 text-xs font-medium">✓ Clean</span>
-                    )}
+                  <td className="py-3.5 px-4 text-slate-600">
+                    {new Date(pr.periodStart).toLocaleDateString()} -{' '}
+                    {new Date(pr.periodEnd).toLocaleDateString()}
                   </td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => navigate(`/payroll/payslips/${ps.id}`)}
-                      className="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-2.5 py-1 rounded"
+                  <td className="py-3.5 px-4 text-center">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      {pr.payslips?.length ?? pr._count?.payslips ?? 0}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4 font-extrabold text-slate-900">
+                    ₹{pr.totalNet ? pr.totalNet.toLocaleString() : '0'}
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        pr.state === 'DONE'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : pr.state === 'DRAFT'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-700 border border-slate-300'
+                      }`}
                     >
-                      Open Payslip →
+                      {pr.state}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4 text-right space-x-2">
+                    <button
+                      onClick={() => handleOpenDetail(pr)}
+                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition"
+                    >
+                      <span>{isHRUser ? 'Manage & Compute' : 'View Pay Run Details'}</span>
                     </button>
+                    {isHRUser && pr.state === 'DRAFT' && (
+                      <button
+                        onClick={() => handleDelete(pr.id)}
+                        className="inline-flex items-center p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold transition"
+                        title="Delete Pay Run"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────
-  // VIEW: PAYRUNS LIST
-  // ──────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Payroll Payruns</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage company salary calculation cycles, computation rules, and payslip generation
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setWizardStep(1);
-            setSearchParams({ mode: 'new' });
-          }}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition"
-        >
-          + New Payrun
-        </button>
+        )}
       </div>
 
-      {/* Payruns List */}
-      {loading ? (
-        <div className="bg-white p-12 text-center text-slate-500 rounded-xl border border-slate-200">
-          Loading payruns from database...
+      {/* Create Modal (Exposed ONLY to HR Payroll User / Admin) */}
+      {isCreateOpen && isHRUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-lg text-slate-800">Create Pay Run</h3>
+              <button
+                onClick={() => setIsCreateOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-rose-50 text-rose-700 rounded-lg text-sm border border-rose-100">
+                  {formError}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Pay Run Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. March 2026 Monthly Payroll"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Period Start *
+                  </label>
+                  <input
+                    type="date"
+                    value={formPeriodStart}
+                    onChange={(e) => setFormPeriodStart(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Period End *
+                  </label>
+                  <input
+                    type="date"
+                    value={formPeriodEnd}
+                    onChange={(e) => setFormPeriodEnd(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Any additional notes or comments..."
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formSubmitting}
+                  className="px-5 py-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition shadow-xs"
+                >
+                  {formSubmitting ? 'Creating...' : 'Create & Select Employees'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      ) : payruns.length === 0 ? (
-        <div className="bg-white p-12 text-center text-slate-500 rounded-xl border border-slate-200">
-          No payruns found in database. Create your first payrun above.
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {['Payrun Name', 'Period', 'Employees', 'Status', 'Total Basic', 'Total Gross', 'Total Net', 'Actions'].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+      )}
+
+      {/* Pay Run Detail Modal (Read-Only for HR Payroll Manager) */}
+      {isDetailOpen && selectedPayrun && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-2xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <div>
+                <div className="flex items-center space-x-3">
+                  <h3 className="font-bold text-xl text-slate-800">
+                    {selectedPayrun.name}
+                  </h3>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedPayrun.state === 'DONE'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {selectedPayrun.state}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Period: {new Date(selectedPayrun.periodStart).toLocaleDateString()} -{' '}
+                  {new Date(selectedPayrun.periodEnd).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsDetailOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              {actionSuccess && (
+                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-sm border border-emerald-200 flex items-center space-x-2">
+                  <span>✓ {actionSuccess}</span>
+                </div>
+              )}
+
+              {/* Workflow Controls exposed ONLY to HR Payroll User & Admin */}
+              {isHRUser ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleValidate}
+                      disabled={validating}
+                      className="flex items-center space-x-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-3.5 py-2 rounded-lg text-sm font-semibold shadow-sm transition"
                     >
-                      {h}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {payruns.map((p) => {
-                const statusMeta = STATUS_CONFIG[p.status] || STATUS_CONFIG.DRAFT;
-                return (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                    <td className="px-5 py-4 font-semibold text-slate-800">{p.name}</td>
-                    <td className="px-5 py-4 text-slate-600 text-xs">
-                      {new Date(p.periodStart).toLocaleDateString()} — {new Date(p.periodEnd).toLocaleDateString()}
-                    </td>
-                    <td className="px-5 py-4 font-semibold text-slate-700">{p.employeeCount} staff</td>
-                    <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusMeta.badge}`}>
-                        {statusMeta.label}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-slate-700 font-medium">
-                      ${(p.totalBasic || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-5 py-4 text-slate-700 font-medium">
-                      ${(p.totalGross || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-5 py-4 font-bold text-indigo-600">
-                      ${(p.totalNet || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-5 py-4">
+                      <span>{validating ? 'Checking...' : 'Run Pre-Computation Check'}</span>
+                    </button>
+                    {selectedPayrun.state === 'DRAFT' && (
                       <button
-                        onClick={() => setSearchParams({ id: p.id })}
-                        className="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-3 py-1 rounded"
+                        onClick={handleCompute}
+                        disabled={computing}
+                        className="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition"
                       >
-                        Open Payrun →
+                        <span>{computing ? 'Computing Payroll...' : 'Compute Payroll'}</span>
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    )}
+                  </div>
+                  <div>
+                    {selectedPayrun.state === 'DRAFT' ? (
+                      <button
+                        onClick={() => handleStateChange('DONE')}
+                        className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition"
+                      >
+                        <span>Approve & Lock Pay Run</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleStateChange('DRAFT')}
+                        className="flex items-center space-x-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-semibold transition"
+                      >
+                        <span>Re-open as Draft</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs font-bold flex items-center justify-between">
+                  <span>🔒 Read-Only Record: Pay run creation and processing is managed by HR Payroll User.</span>
+                </div>
+              )}
+
+              {/* Validation Warning Results */}
+              {validationResult && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
+                    Pre-computation Audit Findings ({validationResult.warnings.length})
+                  </h4>
+                  {validationResult.warnings.length === 0 ? (
+                    <div className="p-3 bg-emerald-50 text-emerald-800 rounded-lg text-sm border border-emerald-200 flex items-center space-x-2">
+                      <span>✓ All employee structures & contracts are valid. Ready for computation!</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {validationResult.warnings.map((w, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-lg text-xs border flex items-start space-x-2.5 ${
+                            w.severity === 'ERROR'
+                              ? 'bg-rose-50 border-rose-200 text-rose-800'
+                              : 'bg-amber-50 border-amber-200 text-amber-800'
+                          }`}
+                        >
+                          <div>
+                            <span className="font-semibold">{w.employeeName}: </span>
+                            <span>{w.message}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Employees & Calculated Payslips Table */}
+              <div>
+                <h4 className="text-xs font-extrabold uppercase text-slate-400 tracking-wider mb-3">
+                  Employee Payslips ({selectedPayrun.payslips?.length || 0})
+                </h4>
+                <div className="border border-slate-200/80 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-2.5 px-4">Employee</th>
+                        <th className="py-2.5 px-4">Structure</th>
+                        <th className="py-2.5 px-4">Basic Wage</th>
+                        <th className="py-2.5 px-4">Gross Wage</th>
+                        <th className="py-2.5 px-4">Net Wage</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {selectedPayrun.payslips?.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-slate-900">
+                              {p.employee.firstName} {p.employee.lastName}
+                            </div>
+                            <div className="text-xs text-slate-400 font-mono">
+                              #{p.employee.employeeNumber}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {p.salaryStructure ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-xs font-bold">
+                                {p.salaryStructure.name}
+                              </span>
+                            ) : (
+                              <span className="text-rose-500 text-xs italic">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-700">
+                            ₹{Number(p.basicWage || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-800">
+                            ₹{Number(p.grossWage || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 font-extrabold text-indigo-600">
+                            ₹{Number(p.netWage || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
-}
+};
+
+export default Payruns;

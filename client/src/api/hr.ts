@@ -145,3 +145,84 @@ export const createTimeOffRequest = (data: Partial<TimeOffRequest>) => api.post<
 export const approveTimeOffRequest = (id: string) => api.post<{ message: string; request: TimeOffRequest; allocation: TimeOffAllocation | null }>(`/api/timeoff/requests/${id}/approve`).then(r => r.data);
 export const refuseTimeOffRequest = (id: string, refusalReason?: string) => api.post<{ message: string; request: TimeOffRequest }>(`/api/timeoff/requests/${id}/refuse`, { refusalReason }).then(r => r.data);
 
+// ── Salary Structures & Rules ───────────────────────────────────────────────
+
+export type SalaryRuleCategory =
+  | 'EARNING'
+  | 'DEDUCTION'
+  | 'EMPLOYER_CONTRIBUTION'
+  | 'BASIC'
+  | 'ALLOWANCE'
+  | 'GROSS'
+  | 'NET';
+
+export type RuleCalculationType = 'FIXED_AMOUNT' | 'PERCENTAGE' | 'FORMULA';
+
+export interface SalaryRule {
+  id?: string;
+  salaryStructureId?: string;
+  name: string;
+  code: string;
+  category: SalaryRuleCategory;
+  sequence: number;
+  calculationType: RuleCalculationType;
+  fixedAmount?: number | string | null;
+  amountFixed?: number | string | null;
+  percentage?: number | string | null;
+  amountPercentage?: number | string | null;
+  baseCode?: string | null;
+  formula?: string | null;
+  condition?: string | null;
+  conditionType?: string | null;
+  conditionValue?: number | string | null;
+  roundingRule?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  appears_on_payslip?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SalaryStructure {
+  id: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  rules?: SalaryRule[];
+  _count?: { contracts: number; payslips: number; rules: number };
+}
+
+export const fetchSalaryStructures = (params?: { status?: string; activeOnly?: boolean }) =>
+  api.get<SalaryStructure[]>('/api/salary-structures', { params }).then(r => r.data);
+
+export const fetchSalaryStructure = (id: string) =>
+  api.get<SalaryStructure>(`/api/salary-structures/${id}`).then(r => r.data);
+
+export const calculateSalaryStructure = (id: string, context?: Record<string, any>) =>
+  api.post<any>(`/api/salary-structures/${id}/calculate`, context).then(r => r.data);
+
+export const createSalaryStructure = (data: Partial<SalaryStructure>) =>
+  api.post<SalaryStructure>('/api/salary-structures', data).then(r => r.data);
+
+export const updateSalaryStructure = (id: string, data: Partial<SalaryStructure>) =>
+  api.put<SalaryStructure>(`/api/salary-structures/${id}`, data).then(r => r.data);
+
+export const deleteSalaryStructure = (id: string) =>
+  api.delete(`/api/salary-structures/${id}`).then(r => r.data);
+
+export const fetchSalaryRules = (params?: { structureId?: string }) =>
+  api.get<SalaryRule[]>('/api/salary-rules', { params }).then(r => r.data);
+
+export const createSalaryRule = (data: Partial<SalaryRule>) =>
+  api.post<SalaryRule>('/api/salary-rules', data).then(r => r.data);
+
+export const updateSalaryRule = (id: string, data: Partial<SalaryRule>) =>
+  api.put<SalaryRule>(`/api/salary-rules/${id}`, data).then(r => r.data);
+
+export const deleteSalaryRule = (id: string) =>
+  api.delete(`/api/salary-rules/${id}`).then(r => r.data);
+
