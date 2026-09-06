@@ -292,8 +292,8 @@ router.post(
           update: {
             daysAllocated: allocatedNum,
             remaining: allocatedNum,
-            validityFrom: validityFrom ? new Date(validityFrom) : null,
-            validityTo: validityTo ? new Date(validityTo) : null,
+            validityFrom: validityFrom && String(validityFrom).trim() !== '' ? new Date(validityFrom) : null,
+            validityTo: validityTo && String(validityTo).trim() !== '' ? new Date(validityTo) : null,
           },
           create: {
             employeeId,
@@ -302,8 +302,8 @@ router.post(
             daysAllocated: allocatedNum,
             daysUsed: 0,
             remaining: allocatedNum,
-            validityFrom: validityFrom ? new Date(validityFrom) : null,
-            validityTo: validityTo ? new Date(validityTo) : null,
+            validityFrom: validityFrom && String(validityFrom).trim() !== '' ? new Date(validityFrom) : null,
+            validityTo: validityTo && String(validityTo).trim() !== '' ? new Date(validityTo) : null,
           },
           include: {
             employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },

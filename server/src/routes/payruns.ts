@@ -370,9 +370,9 @@ router.post(
         ...fullPayrun,
         blockedEmployees,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Create payrun error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to create payrun' });
     }
   }
 );

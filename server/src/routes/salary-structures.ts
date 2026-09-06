@@ -180,9 +180,9 @@ router.post(
       });
 
       res.status(201).json(structure);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Create salary structure error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to create salary structure' });
     }
   }
 );
@@ -273,9 +273,9 @@ router.put(
       });
 
       res.json(updated);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update salary structure error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to update salary structure' });
     }
   }
 );

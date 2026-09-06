@@ -8,11 +8,13 @@ const router = Router();
 router.use(authenticate);
 
 // Helper function to calculate hours per week from lines
-const calculateHoursPerWeek = (lines: { timeFrom: string; timeTo: string }[]) => {
+const calculateHoursPerWeek = (lines: { timeFrom?: string; timeTo?: string }[]) => {
   let totalHours = 0;
   for (const line of lines) {
+    if (!line.timeFrom || !line.timeTo) continue;
     const [fromH, fromM] = line.timeFrom.split(':').map(Number);
     const [toH, toM] = line.timeTo.split(':').map(Number);
+    if (isNaN(fromH) || isNaN(fromM) || isNaN(toH) || isNaN(toM)) continue;
     
     // Simple decimal hours calculation
     const fromDecimal = fromH + fromM / 60;
@@ -88,9 +90,9 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
       include: { scheduleLines: true }
     });
     res.status(201).json(schedule);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Create schedule error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(400).json({ message: err.message || 'Failed to create working schedule' });
   }
 });
 
@@ -126,9 +128,9 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
     });
 
     res.json(schedule);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Update schedule error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(400).json({ message: err.message || 'Failed to update working schedule' });
   }
 });
 

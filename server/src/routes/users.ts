@@ -77,9 +77,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       tempPassword: rawPassword,
       user,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Create user error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(400).json({ message: err.message || 'Failed to create user' });
   }
 });
 
@@ -92,7 +92,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     const data: any = {};
     if (role) data.role = role;
     if (employeeId !== undefined) {
-      if (employeeId === null) {
+      if (!employeeId) {
         data.employee = { disconnect: true };
       } else {
         data.employee = { connect: { id: employeeId } };
@@ -106,9 +106,9 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
     });
 
     res.json(user);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Update user error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(400).json({ message: err.message || 'Failed to update user' });
   }
 });
 

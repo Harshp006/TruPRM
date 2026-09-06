@@ -506,9 +506,9 @@ router.post(
       });
 
       res.status(201).json(attendance);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Create attendance error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to create attendance record' });
     }
   }
 );
@@ -557,9 +557,9 @@ router.put(
       });
 
       res.json(updated);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update attendance error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to update attendance record' });
     }
   }
 );

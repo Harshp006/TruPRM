@@ -327,12 +327,12 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
     if (dateOfBirth) data.dateOfBirth = new Date(dateOfBirth);
     
     if (userId !== undefined) {
-      if (userId === null) data.user = { disconnect: true };
+      if (!userId) data.user = { disconnect: true };
       else data.user = { connect: { id: userId } };
     }
 
     if (managerId !== undefined) {
-      if (managerId === null) data.manager = { disconnect: true };
+      if (!managerId) data.manager = { disconnect: true };
       else data.manager = { connect: { id: managerId } };
     }
 
@@ -341,9 +341,9 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
       data,
     });
     res.json(employee);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Update employee error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(400).json({ message: err.message || 'Failed to update employee' });
   }
 });
 

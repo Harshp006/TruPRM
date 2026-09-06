@@ -113,9 +113,9 @@ router.post(
       });
 
       res.status(201).json(rule);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Create salary rule error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to create salary rule' });
     }
   }
 );
@@ -198,9 +198,9 @@ router.put(
       });
 
       res.json(updated);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update salary rule error:', err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(400).json({ message: err.message || 'Failed to update salary rule' });
     }
   }
 );

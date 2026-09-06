@@ -64,27 +64,27 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
       notes
     } = req.body;
 
-    if (!employeeId || !startDate || wageAmount === undefined) {
-      res.status(400).json({ message: 'Employee, start date, and wage are required' });
+    if (!employeeId || !startDate || wageAmount === undefined || wageAmount === '') {
+      res.status(400).json({ message: 'Employee, start date, and wage amount are required' });
       return;
     }
 
     const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : undefined;
+    const end = endDate && endDate.trim() !== '' ? new Date(endDate) : null;
     const contractStatus = status || 'ACTIVE';
+    const schedId = workingScheduleId && workingScheduleId.trim() !== '' ? workingScheduleId : null;
+    const structId = salaryStructureId && salaryStructureId.trim() !== '' ? salaryStructureId : null;
 
     const newContract = await prisma.$transaction(async (tx) => {
-      // Check for overlapping ACTIVE contracts for the same employee
       if (contractStatus === 'ACTIVE') {
         const overlapping = await tx.contract.findFirst({
           where: {
             employeeId,
             status: 'ACTIVE',
             OR: [
-              { endDate: null }, // Existing contract goes forever
-              { endDate: { gte: start } } // Existing contract ends after new one starts
+              { endDate: null },
+              { endDate: { gte: start } }
             ],
-            // If new contract has an end date, existing contract must start before new one ends
             ...(end && { startDate: { lte: end } })
           }
         });
@@ -94,30 +94,29 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
         }
       }
 
+      const data: any = {
+        employeeId,
+        contractType: contractType || 'FULL_TIME',
+        status: contractStatus,
+        startDate: start,
+        endDate: end,
+        wageCurrency: wageCurrency || 'USD',
+        wageAmount,
+        notes: notes || null
+      };
+
+      if (schedId) data.workingScheduleId = schedId;
+      if (structId) data.salaryStructureId = structId;
+
       return await tx.contract.create({
-        data: {
-          employeeId,
-          contractType: contractType || 'FULL_TIME',
-          status: contractStatus,
-          startDate: start,
-          endDate: end,
-          wageCurrency: wageCurrency || 'USD',
-          wageAmount,
-          workingScheduleId,
-          salaryStructureId,
-          notes
-        }
+        data
       });
     });
 
     res.status(201).json(newContract);
   } catch (err: any) {
     console.error('Create contract error:', err);
-    if (err.message === 'Employee already has an overlapping active contract') {
-      res.status(400).json({ message: err.message });
-    } else {
-      res.status(500).json({ message: 'Internal server error' });
-    }
+    res.status(400).json({ message: err.message || 'Failed to create contract' });
   }
 });
 
@@ -145,15 +144,17 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
     }
 
     const start = startDate ? new Date(startDate) : currentContract.startDate;
-    const end = endDate !== undefined ? (endDate ? new Date(endDate) : null) : currentContract.endDate;
+    const end = endDate !== undefined ? (endDate && endDate.trim() !== '' ? new Date(endDate) : null) : currentContract.endDate;
     const contractStatus = status || currentContract.status;
     const empId = employeeId || currentContract.employeeId;
+    const schedId = workingScheduleId !== undefined ? (workingScheduleId && workingScheduleId.trim() !== '' ? workingScheduleId : null) : undefined;
+    const structId = salaryStructureId !== undefined ? (salaryStructureId && salaryStructureId.trim() !== '' ? salaryStructureId : null) : undefined;
 
     const updatedContract = await prisma.$transaction(async (tx) => {
       if (contractStatus === 'ACTIVE') {
         const overlapping = await tx.contract.findFirst({
           where: {
-            id: { not: id as string }, // Exclude current contract
+            id: { not: id as string },
             employeeId: empId,
             status: 'ACTIVE',
             OR: [
@@ -179,13 +180,13 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
       if (wageAmount !== undefined) data.wageAmount = wageAmount;
       if (notes !== undefined) data.notes = notes;
       
-      if (workingScheduleId !== undefined) {
-        if (workingScheduleId === null) data.workingSchedule = { disconnect: true };
-        else data.workingSchedule = { connect: { id: workingScheduleId } };
+      if (schedId !== undefined) {
+        if (schedId === null) data.workingSchedule = { disconnect: true };
+        else data.workingSchedule = { connect: { id: schedId } };
       }
-      if (salaryStructureId !== undefined) {
-        if (salaryStructureId === null) data.salaryStructure = { disconnect: true };
-        else data.salaryStructure = { connect: { id: salaryStructureId } };
+      if (structId !== undefined) {
+        if (structId === null) data.salaryStructure = { disconnect: true };
+        else data.salaryStructure = { connect: { id: structId } };
       }
 
       return await tx.contract.update({
@@ -197,11 +198,7 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
     res.json(updatedContract);
   } catch (err: any) {
     console.error('Update contract error:', err);
-    if (err.message === 'Employee already has an overlapping active contract') {
-      res.status(400).json({ message: err.message });
-    } else {
-      res.status(500).json({ message: 'Internal server error' });
-    }
+    res.status(400).json({ message: err.message || 'Failed to update contract' });
   }
 });
 
