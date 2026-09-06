@@ -224,6 +224,12 @@ export default function SalaryStructures() {
         )}
       </div>
 
+      {!canManage && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold flex items-center justify-between">
+          <span>🔒 Read-Only Access: Salary structures are managed strictly by HR Payroll Manager.</span>
+        </div>
+      )}
+
       {/* Notifications */}
       {successMessage && (
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between">

@@ -79,6 +79,12 @@ export default function SalaryRulesPage() {
         )}
       </div>
 
+      {!canEdit && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold flex items-center justify-between">
+          <span>🔒 Read-Only Access: Salary rules configuration is strictly managed by HR Payroll Manager.</span>
+        </div>
+      )}
+
       {/* Filter Bar */}
       <SearchFilterBar
         searchQuery={search}

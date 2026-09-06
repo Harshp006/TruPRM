@@ -7,12 +7,17 @@ const TopNavbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [timeOffOpen, setTimeOffOpen] = useState(false);
+  const [payrollOpen, setPayrollOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const payrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setTimeOffOpen(false);
+      }
+      if (payrollRef.current && !payrollRef.current.contains(event.target as Node)) {
+        setPayrollOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -27,9 +32,12 @@ const TopNavbar: React.FC = () => {
   const canSeeContracts = ['ADMIN', 'HR_MANAGER'].includes(role);
   const canSeePayroll = ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
   const canSeeReports = ['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
+  const isManagerRole = ['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
 
   const isTimeOffActive = location.pathname.startsWith('/time-off') || location.pathname.startsWith('/timeoff');
-  const portalTitle = role === 'HR_PAYROLL_MANAGER' || role === 'HR_PAYROLL_ADMIN'
+  const isPayrollActive = location.pathname.startsWith('/payruns') || location.pathname.startsWith('/salary-structures') || location.pathname.startsWith('/salary-rules') || (canSeePayroll && location.pathname.startsWith('/payslips'));
+
+  const portalTitle = isManagerRole
     ? 'TruPRM - HR Payroll Manager Portal'
     : role === 'HR_PAYROLL_USER'
     ? 'TruPRM - HR Payroll User Portal'
@@ -45,7 +53,7 @@ const TopNavbar: React.FC = () => {
           <a href="#" onClick={(e) => { e.preventDefault(); navigate('/profile'); }} style={{ color: 'white', textDecoration: 'underline' }}>Profile</a>
           {role === 'ADMIN' && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/users'); }} style={{ color: 'white', textDecoration: 'underline' }}>Admin</a>}
           {['ADMIN', 'HR_MANAGER'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/working-schedules'); }} style={{ color: 'white', textDecoration: 'underline' }}>Schedules</a>}
-          {['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/salary-structures'); }} style={{ color: 'white', textDecoration: 'underline' }}>Config</a>}
+          {isManagerRole && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/salary-structures'); }} style={{ color: 'white', textDecoration: 'underline' }}>Config</a>}
           <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} style={{ color: '#FF9999', textDecoration: 'underline' }}>Logout</a>
         </div>
       </div>
@@ -207,43 +215,113 @@ const TopNavbar: React.FC = () => {
           )}
         </div>
 
-        {/* Payroll */}
+        {/* Payroll ▼ Interactive Dropdown */}
         {canSeePayroll && (
-          <Link
-            to="/payruns"
-            style={{
-              padding: '6px 15px',
-              backgroundColor: location.pathname.startsWith('/payruns') ? '#e0e0e0' : '#d4d0c8',
-              color: '#000',
-              border: location.pathname.startsWith('/payruns') ? '2px inset #fff' : '2px outset #fff',
-              borderColor: location.pathname.startsWith('/payruns') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-              fontSize: '14px',
-              fontWeight: location.pathname.startsWith('/payruns') ? 'bold' : 'normal',
-              textDecoration: 'none',
-              display: 'inline-block'
-            }}
-          >
-            Payroll
-          </Link>
-        )}
+          <div ref={payrollRef} style={{ position: 'relative', display: 'inline-block' }}>
+            <button
+              type="button"
+              onClick={() => setPayrollOpen(!payrollOpen)}
+              style={{
+                padding: '6px 15px',
+                backgroundColor: isPayrollActive ? '#e0e0e0' : '#d4d0c8',
+                color: '#000',
+                border: isPayrollActive ? '2px inset #fff' : '2px outset #fff',
+                borderColor: isPayrollActive ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+                fontSize: '14px',
+                fontWeight: isPayrollActive ? 'bold' : 'normal',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>Payroll</span>
+              <span style={{ fontSize: '10px' }}>▼</span>
+            </button>
 
-        {/* Payslips */}
-        <Link
-          to="/payslips"
-          style={{
-            padding: '6px 15px',
-            backgroundColor: location.pathname.startsWith('/payslips') ? '#e0e0e0' : '#d4d0c8',
-            color: '#000',
-            border: location.pathname.startsWith('/payslips') ? '2px inset #fff' : '2px outset #fff',
-            borderColor: location.pathname.startsWith('/payslips') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-            fontSize: '14px',
-            fontWeight: location.pathname.startsWith('/payslips') ? 'bold' : 'normal',
-            textDecoration: 'none',
-            display: 'inline-block'
-          }}
-        >
-          {canSeePayroll ? 'Payslips' : 'My Payslips'}
-        </Link>
+            {payrollOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  backgroundColor: '#ffffff',
+                  border: '2px solid #003366',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                  zIndex: 1000,
+                  minWidth: '210px',
+                  marginTop: '2px',
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}
+              >
+                <Link
+                  to="/payruns"
+                  onClick={() => setPayrollOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '10px 16px',
+                    color: '#003366',
+                    fontSize: '13px',
+                    fontWeight: location.pathname.startsWith('/payruns') ? 'bold' : '500',
+                    backgroundColor: location.pathname.startsWith('/payruns') ? '#f0f4f8' : '#ffffff',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #e2e8f0'
+                  }}
+                >
+                  💳 Pay Runs
+                </Link>
+                <Link
+                  to="/payslips"
+                  onClick={() => setPayrollOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '10px 16px',
+                    color: '#003366',
+                    fontSize: '13px',
+                    fontWeight: location.pathname.startsWith('/payslips') ? 'bold' : '500',
+                    backgroundColor: location.pathname.startsWith('/payslips') ? '#f0f4f8' : '#ffffff',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #e2e8f0'
+                  }}
+                >
+                  📄 Payslips
+                </Link>
+                <Link
+                  to="/salary-structures"
+                  onClick={() => setPayrollOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '10px 16px',
+                    color: '#003366',
+                    fontSize: '13px',
+                    fontWeight: location.pathname.startsWith('/salary-structures') ? 'bold' : '500',
+                    backgroundColor: location.pathname.startsWith('/salary-structures') ? '#f0f4f8' : '#ffffff',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #e2e8f0'
+                  }}
+                >
+                  ⚙️ Salary Structures {!isManagerRole && <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>(Read-Only)</span>}
+                </Link>
+                <Link
+                  to="/salary-rules"
+                  onClick={() => setPayrollOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '10px 16px',
+                    color: '#003366',
+                    fontSize: '13px',
+                    fontWeight: location.pathname.startsWith('/salary-rules') ? 'bold' : '500',
+                    backgroundColor: location.pathname.startsWith('/salary-rules') ? '#f0f4f8' : '#ffffff',
+                    textDecoration: 'none'
+                  }}
+                >
+                  📐 Salary Rules {!isManagerRole && <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>(Read-Only)</span>}
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
