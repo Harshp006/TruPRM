@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -236,6 +237,18 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
       color
     } = req.body;
 
+    if (!employeeNumber || !firstName || !lastName || !hireDate || !jobTitle) {
+      res.status(400).json({ message: 'Missing required employee fields (Employee Number, First Name, Last Name, Hire Date, Job Title).' });
+      return;
+    }
+
+    // Check unique employee number
+    const existingEmpNum = await prisma.employee.findUnique({ where: { employeeNumber } });
+    if (existingEmpNum) {
+      res.status(400).json({ message: `Employee Number #${employeeNumber} already exists. Please use a unique Employee Number.` });
+      return;
+    }
+
     const data: any = {
       employeeNumber,
       firstName,
@@ -243,20 +256,46 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
       hireDate: new Date(hireDate),
       jobTitle,
       department,
-      color
+      color: color || '#6366f1'
     };
 
-    if (userId) data.user = { connect: { id: userId } };
     if (dateOfBirth) data.dateOfBirth = new Date(dateOfBirth);
     if (managerId) data.manager = { connect: { id: managerId } };
 
+    if (userId) {
+      const existingUserLink = await prisma.employee.findUnique({ where: { userId } });
+      if (existingUserLink) {
+        res.status(400).json({ message: 'The selected user account is already linked to another employee.' });
+        return;
+      }
+      data.user = { connect: { id: userId } };
+    } else {
+      // Auto-create linked user account if none selected
+      const sanitizedFn = (firstName || 'emp').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sanitizedLn = (lastName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const generatedEmail = `${sanitizedFn}.${sanitizedLn}.${Date.now()}@truprm.com`;
+      const defaultPasswordHash = await bcrypt.hash('password123', 12);
+      data.user = {
+        create: {
+          email: generatedEmail,
+          passwordHash: defaultPasswordHash,
+          role: 'EMPLOYEE',
+          mustChangePassword: true,
+        },
+      };
+    }
+
     const employee = await prisma.employee.create({
       data,
+      include: {
+        user: { select: { id: true, email: true, role: true } },
+        manager: { select: { id: true, firstName: true, lastName: true } },
+      },
     });
     res.status(201).json(employee);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Create employee error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(400).json({ message: err.message || 'Failed to create employee record' });
   }
 });
 

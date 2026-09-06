@@ -7,7 +7,6 @@ import {
 } from '../api/hr';
 import { fetchUsers, type User } from '../api/users';
 import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
-import AttendanceToggleWidget from '../components/AttendanceToggleWidget';
 import Pagination from '../components/Pagination';
 
 function KanbanCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
@@ -86,11 +85,6 @@ function EmployeeForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="mb-4">
-        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Check-in / Check-out</label>
-        <AttendanceToggleWidget />
-      </div>
-
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
@@ -506,11 +500,6 @@ export default function EmployeesPage() {
                     count={detailEmployee._count?.payslips ?? detailEmployee.payslips?.length ?? 0}
                     onClick={() => navigate(`/payslips?employeeId=${detailEmployee.id}`)}
                   />
-                </div>
-
-                {/* Check In / Check Out Widget */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                  <AttendanceToggleWidget />
                 </div>
 
                 {/* 1. EMPLOYEE INFORMATION */}
