@@ -191,23 +191,28 @@ router.get('/:id/pdf', async (req: Request, res: Response): Promise<void> => {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     doc.pipe(res);
 
-    // ─── FONT REGISTRATION (Unicode Rupee Symbol Support) ─────────────────
+    // ─── FONT REGISTRATION (Formal Corporate Helvetica TrueType) ───────────
     const fs = require('fs');
     const path = require('path');
+    const helvTtcPath = '/System/Library/Fonts/Helvetica.ttc';
     const customRegPath = path.resolve(__dirname, '../fonts/CustomFont-Regular.ttf');
     const customBoldPath = path.resolve(__dirname, '../fonts/CustomFont-Bold.ttf');
 
     let fontRegular = 'Helvetica';
     let fontBold = 'Helvetica-Bold';
 
-    if (fs.existsSync(customRegPath) && fs.existsSync(customBoldPath)) {
+    if (fs.existsSync(helvTtcPath)) {
+      try {
+        doc.registerFont('AppFont', helvTtcPath, 'Helvetica');
+        doc.registerFont('AppFont-Bold', helvTtcPath, 'Helvetica-Bold');
+        fontRegular = 'AppFont';
+        fontBold = 'AppFont-Bold';
+      } catch (e) {
+        console.warn('Helvetica.ttc registration warning:', e);
+      }
+    } else if (fs.existsSync(customRegPath) && fs.existsSync(customBoldPath)) {
       doc.registerFont('AppFont', customRegPath);
       doc.registerFont('AppFont-Bold', customBoldPath);
-      fontRegular = 'AppFont';
-      fontBold = 'AppFont-Bold';
-    } else if (fs.existsSync('/System/Library/Fonts/Supplemental/Georgia.ttf')) {
-      doc.registerFont('AppFont', '/System/Library/Fonts/Supplemental/Georgia.ttf');
-      doc.registerFont('AppFont-Bold', '/System/Library/Fonts/Supplemental/Georgia Bold.ttf');
       fontRegular = 'AppFont';
       fontBold = 'AppFont-Bold';
     }
