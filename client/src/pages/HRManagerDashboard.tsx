@@ -378,56 +378,21 @@ const HRManagerDashboard: React.FC = () => {
         {/* Department Headcount Breakdown (1 Col) */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
           <div>
-            {/* Header with Title & Summary Stats */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 border-b border-slate-100 pb-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Headcount by Department</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">Workforce distribution across departments</p>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="px-2.5 py-1 bg-slate-100 text-slate-700 font-semibold text-[11px] rounded-lg">
-                  {departmentHeadcount.length} Depts
-                </span>
-                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold text-[11px] rounded-lg">
-                  {headcount} Staff
-                </span>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-900">Headcount by Department</h2>
+              <span className="text-xs text-slate-400">{departmentHeadcount.length} Depts</span>
             </div>
 
-            {/* Largest Dept Highlight Badge */}
-            {(() => {
-              const largestDept = departmentHeadcount.length > 0
-                ? [...departmentHeadcount].sort((a, b) => b.count - a.count)[0]
-                : null;
-              if (!largestDept || largestDept.count === 0) return null;
-              const largestPct = headcount > 0 ? Math.round((largestDept.count / headcount) * 100) : 0;
-              return (
-                <div className="mb-3 p-2.5 bg-brand-primary/5 border border-brand-primary/15 rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-slate-600 text-[11px]">
-                    Largest Dept: <strong className="text-slate-900 font-bold">{largestDept.department}</strong>
-                  </span>
-                  <span className="px-2 py-0.5 bg-brand-primary text-white font-bold text-[10px] rounded-md">
-                    {largestDept.count} ({largestPct}%)
-                  </span>
-                </div>
-              );
-            })()}
-
-            {/* 2-Column Compact Department Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="space-y-3.5">
               {departmentHeadcount.map((dept) => {
                 const percentage = headcount > 0 ? Math.round((dept.count / headcount) * 100) : 0;
                 return (
-                  <div key={dept.department} className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-slate-100/60 transition-colors">
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="font-semibold text-slate-800 truncate pr-1" title={dept.department}>
-                        {dept.department}
-                      </span>
-                      <span className="font-bold text-slate-900 whitespace-nowrap text-[11px]">
-                        {dept.count} <span className="text-slate-500 font-normal">({percentage}%)</span>
-                      </span>
+                  <div key={dept.department}>
+                    <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                      <span>{dept.department}</span>
+                      <span>{dept.count} ({percentage}%)</span>
                     </div>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
                         className="bg-brand-primary h-full rounded-full transition-all duration-500"
                         style={{ width: `${percentage}%` }}
@@ -439,7 +404,7 @@ const HRManagerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-6 pt-4 border-t border-slate-100">
             <button
               onClick={() => navigate('/employees')}
               className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl transition-colors border border-slate-200"
