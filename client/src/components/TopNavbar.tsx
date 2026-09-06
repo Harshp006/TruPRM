@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -6,6 +6,18 @@ const TopNavbar: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [timeOffOpen, setTimeOffOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setTimeOffOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!user) return null;
 
@@ -16,28 +28,7 @@ const TopNavbar: React.FC = () => {
   const canSeePayroll = ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN'].includes(role);
   const canSeeReports = ['ADMIN', 'HR_PAYROLL_ADMIN'].includes(role);
 
-  const navItems = [];
-
-  if (canSeeReports) {
-    navItems.push({ path: '/dashboard', label: 'Reports' });
-  } else {
-    navItems.push({ path: '/dashboard', label: 'Home' });
-  }
-
-  if (canSeeEmployees) {
-    navItems.push({ path: '/employees', label: 'Employees' });
-  }
-  if (canSeeContracts) {
-    navItems.push({ path: '/contracts', label: 'Contracts' });
-  }
-  navItems.push({ path: '/attendance', label: 'Attendance' });
-  navItems.push({ path: '/time-off', label: 'Time Off' });
-  
-  if (canSeePayroll) {
-    navItems.push({ path: '/payruns', label: 'Payroll' });
-  } else {
-    navItems.push({ path: '/payslips', label: 'My Payslips' });
-  }
+  const isTimeOffActive = location.pathname.startsWith('/time-off') || location.pathname.startsWith('/timeoff');
 
   return (
     <div style={{ backgroundColor: '#003366', color: 'white', borderBottom: '2px solid #000' }}>
@@ -59,30 +50,210 @@ const TopNavbar: React.FC = () => {
         <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>TruPRM ERP System</h1>
       </div>
 
-      {/* Tabs */}
-      <div style={{ backgroundColor: '#c0c0c0', borderTop: '2px solid #fff', borderBottom: '2px solid #666', padding: '6px 10px', display: 'flex', gap: '8px' }}>
-        {navItems.map(item => {
-          const isActive = location.pathname.startsWith(item.path);
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
+      {/* Tabs Bar */}
+      <div style={{ backgroundColor: '#c0c0c0', borderTop: '2px solid #fff', borderBottom: '2px solid #666', padding: '6px 10px', display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
+        {/* Reports / Home */}
+        <Link
+          to="/dashboard"
+          style={{
+            padding: '6px 15px',
+            backgroundColor: location.pathname.startsWith('/dashboard') ? '#e0e0e0' : '#d4d0c8',
+            color: '#000',
+            border: location.pathname.startsWith('/dashboard') ? '2px inset #fff' : '2px outset #fff',
+            borderColor: location.pathname.startsWith('/dashboard') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+            fontSize: '14px',
+            fontWeight: location.pathname.startsWith('/dashboard') ? 'bold' : 'normal',
+            textDecoration: 'none',
+            display: 'inline-block'
+          }}
+        >
+          {canSeeReports ? 'Reports' : 'Home'}
+        </Link>
+
+        {/* Employees */}
+        {canSeeEmployees && (
+          <Link
+            to="/employees"
+            style={{
+              padding: '6px 15px',
+              backgroundColor: location.pathname.startsWith('/employees') ? '#e0e0e0' : '#d4d0c8',
+              color: '#000',
+              border: location.pathname.startsWith('/employees') ? '2px inset #fff' : '2px outset #fff',
+              borderColor: location.pathname.startsWith('/employees') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+              fontSize: '14px',
+              fontWeight: location.pathname.startsWith('/employees') ? 'bold' : 'normal',
+              textDecoration: 'none',
+              display: 'inline-block'
+            }}
+          >
+            Employees
+          </Link>
+        )}
+
+        {/* Contracts */}
+        {canSeeContracts && (
+          <Link
+            to="/contracts"
+            style={{
+              padding: '6px 15px',
+              backgroundColor: location.pathname.startsWith('/contracts') ? '#e0e0e0' : '#d4d0c8',
+              color: '#000',
+              border: location.pathname.startsWith('/contracts') ? '2px inset #fff' : '2px outset #fff',
+              borderColor: location.pathname.startsWith('/contracts') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+              fontSize: '14px',
+              fontWeight: location.pathname.startsWith('/contracts') ? 'bold' : 'normal',
+              textDecoration: 'none',
+              display: 'inline-block'
+            }}
+          >
+            Contracts
+          </Link>
+        )}
+
+        {/* Attendance */}
+        <Link
+          to="/attendance"
+          style={{
+            padding: '6px 15px',
+            backgroundColor: location.pathname.startsWith('/attendance') ? '#e0e0e0' : '#d4d0c8',
+            color: '#000',
+            border: location.pathname.startsWith('/attendance') ? '2px inset #fff' : '2px outset #fff',
+            borderColor: location.pathname.startsWith('/attendance') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+            fontSize: '14px',
+            fontWeight: location.pathname.startsWith('/attendance') ? 'bold' : 'normal',
+            textDecoration: 'none',
+            display: 'inline-block'
+          }}
+        >
+          Attendance
+        </Link>
+
+        {/* Time Off ▼ Interactive Dropdown */}
+        <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            type="button"
+            onClick={() => setTimeOffOpen(!timeOffOpen)}
+            style={{
+              padding: '6px 15px',
+              backgroundColor: isTimeOffActive ? '#e0e0e0' : '#d4d0c8',
+              color: '#000',
+              border: isTimeOffActive ? '2px inset #fff' : '2px outset #fff',
+              borderColor: isTimeOffActive ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+              fontSize: '14px',
+              fontWeight: isTimeOffActive ? 'bold' : 'normal',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>Time Off</span>
+            <span style={{ fontSize: '10px' }}>▼</span>
+          </button>
+
+          {timeOffOpen && (
+            <div
               style={{
-                padding: '6px 15px',
-                backgroundColor: isActive ? '#e0e0e0' : '#d4d0c8',
-                color: '#000',
-                border: isActive ? '2px inset #fff' : '2px outset #fff',
-                borderColor: isActive ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-                fontSize: '14px',
-                fontWeight: isActive ? 'bold' : 'normal',
-                textDecoration: 'none',
-                display: 'inline-block'
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                backgroundColor: '#ffffff',
+                border: '2px solid #003366',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                zIndex: 1000,
+                minWidth: '180px',
+                marginTop: '2px',
+                borderRadius: '4px',
+                overflow: 'hidden'
               }}
             >
-              {item.label}
-            </Link>
-          );
-        })}
+              <Link
+                to="/time-off/requests"
+                onClick={() => setTimeOffOpen(false)}
+                style={{
+                  display: 'block',
+                  padding: '10px 16px',
+                  color: '#003366',
+                  fontSize: '13px',
+                  fontWeight: location.pathname.includes('/requests') ? 'bold' : '500',
+                  backgroundColor: location.pathname.includes('/requests') ? '#f0f4f8' : '#ffffff',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #e2e8f0'
+                }}
+              >
+                📋 Requests
+              </Link>
+              <Link
+                to="/time-off/allocations"
+                onClick={() => setTimeOffOpen(false)}
+                style={{
+                  display: 'block',
+                  padding: '10px 16px',
+                  color: '#003366',
+                  fontSize: '13px',
+                  fontWeight: location.pathname.includes('/allocations') ? 'bold' : '500',
+                  backgroundColor: location.pathname.includes('/allocations') ? '#f0f4f8' : '#ffffff',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #e2e8f0'
+                }}
+              >
+                📊 Allocations
+              </Link>
+              <Link
+                to="/time-off/types"
+                onClick={() => setTimeOffOpen(false)}
+                style={{
+                  display: 'block',
+                  padding: '10px 16px',
+                  color: '#003366',
+                  fontSize: '13px',
+                  fontWeight: location.pathname.includes('/types') ? 'bold' : '500',
+                  backgroundColor: location.pathname.includes('/types') ? '#f0f4f8' : '#ffffff',
+                  textDecoration: 'none'
+                }}
+              >
+                ⚙️ Time Off Types
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Payroll */}
+        {canSeePayroll ? (
+          <Link
+            to="/payruns"
+            style={{
+              padding: '6px 15px',
+              backgroundColor: location.pathname.startsWith('/payruns') ? '#e0e0e0' : '#d4d0c8',
+              color: '#000',
+              border: location.pathname.startsWith('/payruns') ? '2px inset #fff' : '2px outset #fff',
+              borderColor: location.pathname.startsWith('/payruns') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+              fontSize: '14px',
+              fontWeight: location.pathname.startsWith('/payruns') ? 'bold' : 'normal',
+              textDecoration: 'none',
+              display: 'inline-block'
+            }}
+          >
+            Payroll
+          </Link>
+        ) : (
+          <Link
+            to="/payslips"
+            style={{
+              padding: '6px 15px',
+              backgroundColor: location.pathname.startsWith('/payslips') ? '#e0e0e0' : '#d4d0c8',
+              color: '#000',
+              border: location.pathname.startsWith('/payslips') ? '2px inset #fff' : '2px outset #fff',
+              borderColor: location.pathname.startsWith('/payslips') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+              fontSize: '14px',
+              fontWeight: location.pathname.startsWith('/payslips') ? 'bold' : 'normal',
+              textDecoration: 'none',
+              display: 'inline-block'
+            }}
+          >
+            My Payslips
+          </Link>
+        )}
       </div>
     </div>
   );

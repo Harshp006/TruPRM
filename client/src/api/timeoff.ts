@@ -218,3 +218,12 @@ export const creditCompOff = (data: {
 
 export const fetchTimeOffLedger = (params?: { employeeId?: string; timeOffTypeId?: string }) =>
   api.get<TimeOffLedgerRecord[]>('/api/timeoff/ledger', { params }).then((r) => r.data);
+
+export const fetchTimeOffTypeDetail = (id: string) =>
+  api.get<TimeOffType>(`/api/timeoff/types/${id}`).then((r) => r.data);
+
+export const fetchTimeOffAllocationDetail = (id: string) =>
+  api.get<TimeOffAllocation>(`/api/timeoff/allocations/${id}`).then((r) => r.data);
+
+export const fetchTimeOffRequestDetail = (id: string) =>
+  api.get<TimeOffRequest>(`/api/timeoff/requests/${id}`).then((r) => r.data);

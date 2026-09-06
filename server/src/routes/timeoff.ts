@@ -167,6 +167,27 @@ router.put(
   }
 );
 
+// GET /api/timeoff/types/:id
+router.get('/types/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const type = await prisma.timeOffType.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { allocations: true, requests: true } },
+      },
+    });
+    if (!type) {
+      res.status(404).json({ message: 'Time off type not found' });
+      return;
+    }
+    res.json(type);
+  } catch (err) {
+    console.error('Fetch timeoff type error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // ==================== TIME OFF ALLOCATIONS ====================
 
 // GET /api/timeoff/allocations
@@ -201,6 +222,49 @@ router.get('/allocations', async (req: Request, res: Response): Promise<void> =>
     res.json(allocations);
   } catch (err) {
     console.error('Fetch timeoff allocations error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// GET /api/timeoff/allocations/:id
+router.get('/allocations/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+
+    const allocation = await prisma.timeOffAllocation.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            employeeNumber: true,
+            department: true,
+            jobTitle: true,
+            color: true,
+            manager: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        timeOffType: true,
+      },
+    });
+
+    if (!allocation) {
+      res.status(404).json({ message: 'Allocation not found' });
+      return;
+    }
+
+    if (userRole === 'EMPLOYEE' && allocation.employeeId !== authEmpId) {
+      res.status(403).json({ message: 'Forbidden: Cannot access another employee\'s allocation' });
+      return;
+    }
+
+    res.json(allocation);
+  } catch (err) {
+    console.error('Fetch allocation detail error:', err);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -313,6 +377,49 @@ router.get('/requests', async (req: Request, res: Response): Promise<void> => {
     res.json(requests);
   } catch (err) {
     console.error('Fetch timeoff requests error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// GET /api/timeoff/requests/:id
+router.get('/requests/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+
+    const request = await prisma.timeOffRequest.findUnique({
+      where: { id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            employeeNumber: true,
+            department: true,
+            jobTitle: true,
+            color: true,
+            manager: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        timeOffType: true,
+      },
+    });
+
+    if (!request) {
+      res.status(404).json({ message: 'Leave request not found' });
+      return;
+    }
+
+    if (userRole === 'EMPLOYEE' && request.employeeId !== authEmpId) {
+      res.status(403).json({ message: 'Forbidden: Cannot access another employee\'s leave request' });
+      return;
+    }
+
+    res.json(request);
+  } catch (err) {
+    console.error('Fetch request detail error:', err);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
