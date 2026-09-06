@@ -5,6 +5,8 @@ import ProtectedRoute from '../components/ProtectedRoute';
 
 import { useAuth } from '../context/AuthContext';
 
+import LoginPage from '../pages/LoginPage';
+import SignupPage from '../pages/SignupPage';
 import Dashboard from '../pages/Dashboard';
 import Employees from '../pages/Employees';
 import Contracts from '../pages/Contracts';
@@ -37,6 +39,8 @@ const RoleDefaultRedirect: React.FC = () => {
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
       <Route element={<ProtectedRoute />}>
         {/* Route accessible without Layout */}
         <Route path="/change-password" element={<ChangePasswordPage />} />

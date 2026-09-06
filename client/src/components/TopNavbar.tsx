@@ -40,293 +40,193 @@ const TopNavbar: React.FC = () => {
   const isPayrollActive = location.pathname.startsWith('/payruns') || location.pathname.startsWith('/salary-structures') || location.pathname.startsWith('/salary-rules') || (canSeePayroll && location.pathname.startsWith('/payslips'));
 
   const portalTitle = isManagerRole
-    ? 'TruPRM - HR Payroll Manager Portal'
+    ? 'Manager Portal'
     : role === 'HR_PAYROLL_USER'
-    ? 'TruPRM - HR Payroll User Portal'
-    : 'TruPRM - Official Human Resources Portal';
+    ? 'Payroll User Portal'
+    : 'HR Portal';
 
   return (
-    <div style={{ backgroundColor: '#003366', color: 'white', borderBottom: '2px solid #000' }}>
-      {/* Utility Bar */}
-      <div style={{ padding: '6px 10px', fontSize: '15px', borderBottom: '1px solid #336699', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#002244' }}>
-        <div>{portalTitle}</div>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <span>User: {user.email} [{role}]</span>
+    <div className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm font-sans">
+      {/* Top Utility Bar (Black & Violet theme) */}
+      <div className="bg-black text-white px-6 py-2 flex justify-between items-center text-xs font-medium tracking-wide">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-brand-secondary animate-pulse"></span>
+          TruPRM {portalTitle}
+        </div>
+        <div className="flex items-center gap-6">
+          <span className="text-slate-300 hidden sm:inline-block">Logged in as: <strong className="text-white">{user.email}</strong></span>
           <NotificationBell />
-          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/profile'); }} style={{ color: 'white', textDecoration: 'underline' }}>Profile</a>
-          {role === 'ADMIN' && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/users'); }} style={{ color: 'white', textDecoration: 'underline' }}>Admin</a>}
-          {['ADMIN', 'HR_MANAGER'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/working-schedules'); }} style={{ color: 'white', textDecoration: 'underline' }}>Schedules</a>}
-          {isManagerRole && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/salary-structures'); }} style={{ color: 'white', textDecoration: 'underline' }}>Config</a>}
-          <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} style={{ color: '#FF9999', textDecoration: 'underline' }}>Logout</a>
-        </div>
-      </div>
-
-      {/* Main Header */}
-      <div style={{ padding: '20px 30px', display: 'flex', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>TruPRM ERP System</h1>
-      </div>
-
-      {/* Tabs Bar */}
-      <div style={{ backgroundColor: '#c0c0c0', borderTop: '2px solid #fff', borderBottom: '2px solid #666', padding: '6px 10px', display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
-        {/* Reports / Home */}
-        <Link
-          to={role === 'EMPLOYEE' ? '/payslips' : role === 'HR_PAYROLL_USER' ? '/payroll-home' : '/dashboard'}
-          style={{
-            padding: '6px 15px',
-            backgroundColor: (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/payroll-home')) ? '#e0e0e0' : '#d4d0c8',
-            color: '#000',
-            border: (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/payroll-home')) ? '2px inset #fff' : '2px outset #fff',
-            borderColor: (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/payroll-home')) ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-            fontSize: '14px',
-            fontWeight: (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/payroll-home')) ? 'bold' : 'normal',
-            textDecoration: 'none',
-            display: 'inline-block'
-          }}
-        >
-          {canSeeReports ? 'Reports' : 'Home'}
-        </Link>
-
-        {/* Employees */}
-        {canSeeEmployees && (
-          <Link
-            to="/employees"
-            style={{
-              padding: '6px 15px',
-              backgroundColor: location.pathname.startsWith('/employees') ? '#e0e0e0' : '#d4d0c8',
-              color: '#000',
-              border: location.pathname.startsWith('/employees') ? '2px inset #fff' : '2px outset #fff',
-              borderColor: location.pathname.startsWith('/employees') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-              fontSize: '14px',
-              fontWeight: location.pathname.startsWith('/employees') ? 'bold' : 'normal',
-              textDecoration: 'none',
-              display: 'inline-block'
-            }}
-          >
-            Employees
-          </Link>
-        )}
-
-        {/* Contracts */}
-        {canSeeContracts && (
-          <Link
-            to="/contracts"
-            style={{
-              padding: '6px 15px',
-              backgroundColor: location.pathname.startsWith('/contracts') ? '#e0e0e0' : '#d4d0c8',
-              color: '#000',
-              border: location.pathname.startsWith('/contracts') ? '2px inset #fff' : '2px outset #fff',
-              borderColor: location.pathname.startsWith('/contracts') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-              fontSize: '14px',
-              fontWeight: location.pathname.startsWith('/contracts') ? 'bold' : 'normal',
-              textDecoration: 'none',
-              display: 'inline-block'
-            }}
-          >
-            Contracts
-          </Link>
-        )}
-
-        {/* Attendance */}
-        <Link
-          to="/attendance"
-          style={{
-            padding: '6px 15px',
-            backgroundColor: location.pathname.startsWith('/attendance') ? '#e0e0e0' : '#d4d0c8',
-            color: '#000',
-            border: location.pathname.startsWith('/attendance') ? '2px inset #fff' : '2px outset #fff',
-            borderColor: location.pathname.startsWith('/attendance') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-            fontSize: '14px',
-            fontWeight: location.pathname.startsWith('/attendance') ? 'bold' : 'normal',
-            textDecoration: 'none',
-            display: 'inline-block'
-          }}
-        >
-          Attendance
-        </Link>
-
-        {/* Time Off ▼ Interactive Dropdown */}
-        <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
-          <button
-            type="button"
-            onClick={() => setTimeOffOpen(!timeOffOpen)}
-            style={{
-              padding: '6px 15px',
-              backgroundColor: isTimeOffActive ? '#e0e0e0' : '#d4d0c8',
-              color: '#000',
-              border: isTimeOffActive ? '2px inset #fff' : '2px outset #fff',
-              borderColor: isTimeOffActive ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-              fontSize: '14px',
-              fontWeight: isTimeOffActive ? 'bold' : 'normal',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>Time Off</span>
-            <span style={{ fontSize: '10px' }}>▼</span>
-          </button>
-
-          {timeOffOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                backgroundColor: '#ffffff',
-                border: '2px solid #003366',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                zIndex: 1000,
-                minWidth: '180px',
-                marginTop: '2px',
-                borderRadius: '4px',
-                overflow: 'hidden'
-              }}
-            >
-              <Link
-                to="/time-off/requests"
-                onClick={() => setTimeOffOpen(false)}
-                style={{
-                  display: 'block',
-                  padding: '10px 16px',
-                  color: '#003366',
-                  fontSize: '13px',
-                  fontWeight: location.pathname.includes('/requests') ? 'bold' : '500',
-                  backgroundColor: location.pathname.includes('/requests') ? '#f0f4f8' : '#ffffff',
-                  textDecoration: 'none',
-                  borderBottom: '1px solid #e2e8f0'
-                }}
-              >
-                📋 Requests
-              </Link>
-              <Link
-                to="/time-off/allocations"
-                onClick={() => setTimeOffOpen(false)}
-                style={{
-                  display: 'block',
-                  padding: '10px 16px',
-                  color: '#003366',
-                  fontSize: '13px',
-                  fontWeight: location.pathname.includes('/allocations') ? 'bold' : '500',
-                  backgroundColor: location.pathname.includes('/allocations') ? '#f0f4f8' : '#ffffff',
-                  textDecoration: 'none'
-                }}
-              >
-                📊 Allocations
-              </Link>
-            </div>
+          {role === 'ADMIN' && (
+            <Link to="/users" className="hover:text-brand-secondary transition-colors">Admin Settings</Link>
           )}
+          {['ADMIN', 'HR_MANAGER'].includes(role) && (
+            <Link to="/working-schedules" className="hover:text-brand-secondary transition-colors">Schedules</Link>
+          )}
+          {isManagerRole && (
+            <Link to="/salary-structures" className="hover:text-brand-secondary transition-colors">Config</Link>
+          )}
+          <Link to="/profile" className="hover:text-brand-secondary transition-colors">Profile</Link>
+          <button onClick={() => logout()} className="text-rose-400 hover:text-rose-300 font-semibold transition-colors">Logout</button>
         </div>
+      </div>
 
-        {/* Payroll ▼ Interactive Dropdown */}
-        {canSeePayroll && (
-          <div ref={payrollRef} style={{ position: 'relative', display: 'inline-block' }}>
-            <button
-              type="button"
-              onClick={() => setPayrollOpen(!payrollOpen)}
-              style={{
-                padding: '6px 15px',
-                backgroundColor: isPayrollActive ? '#e0e0e0' : '#d4d0c8',
-                color: '#000',
-                border: isPayrollActive ? '2px inset #fff' : '2px outset #fff',
-                borderColor: isPayrollActive ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-                fontSize: '14px',
-                fontWeight: isPayrollActive ? 'bold' : 'normal',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
+      {/* Main Navigation */}
+      <div className="px-6 h-16 flex items-center justify-between">
+        {/* Brand/Logo */}
+        <div className="flex items-center gap-8 h-full">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+            <img src="/images/logo.png" alt="TruPRM" className="h-8 object-contain" />
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="hidden md:flex h-full gap-1 ml-4">
+            <Link
+              to={role === 'EMPLOYEE' ? '/payslips' : role === 'HR_PAYROLL_USER' ? '/payroll-home' : '/dashboard'}
+              className={`flex items-center px-4 h-full text-sm font-semibold transition-colors border-b-2 ${
+                (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/payroll-home'))
+                  ? 'border-brand-secondary text-brand-secondary'
+                  : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+              }`}
             >
-              <span>Payroll</span>
-              <span style={{ fontSize: '10px' }}>▼</span>
-            </button>
+              {canSeeReports ? 'Dashboard' : 'Home'}
+            </Link>
 
-            {payrollOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  backgroundColor: '#ffffff',
-                  border: '2px solid #003366',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                  zIndex: 1000,
-                  minWidth: '210px',
-                  marginTop: '2px',
-                  borderRadius: '4px',
-                  overflow: 'hidden'
-                }}
+            {canSeeEmployees && (
+              <Link
+                to="/employees"
+                className={`flex items-center px-4 h-full text-sm font-semibold transition-colors border-b-2 ${
+                  location.pathname.startsWith('/employees')
+                    ? 'border-brand-secondary text-brand-secondary'
+                    : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+                }`}
               >
-                <Link
-                  to="/payruns"
-                  onClick={() => setPayrollOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '10px 16px',
-                    color: '#003366',
-                    fontSize: '13px',
-                    fontWeight: location.pathname.startsWith('/payruns') ? 'bold' : '500',
-                    backgroundColor: location.pathname.startsWith('/payruns') ? '#f0f4f8' : '#ffffff',
-                    textDecoration: 'none',
-                    borderBottom: '1px solid #e2e8f0'
-                  }}
-                >
-                  💳 Pay Runs
-                </Link>
-                <Link
-                  to="/payslips"
-                  onClick={() => setPayrollOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '10px 16px',
-                    color: '#003366',
-                    fontSize: '13px',
-                    fontWeight: location.pathname.startsWith('/payslips') ? 'bold' : '500',
-                    backgroundColor: location.pathname.startsWith('/payslips') ? '#f0f4f8' : '#ffffff',
-                    textDecoration: 'none',
-                    borderBottom: '1px solid #e2e8f0'
-                  }}
-                >
-                  📄 Payslips
-                </Link>
-                <Link
-                  to="/salary-structures"
-                  onClick={() => setPayrollOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '10px 16px',
-                    color: '#003366',
-                    fontSize: '13px',
-                    fontWeight: location.pathname.startsWith('/salary-structures') ? 'bold' : '500',
-                    backgroundColor: location.pathname.startsWith('/salary-structures') ? '#f0f4f8' : '#ffffff',
-                    textDecoration: 'none',
-                    borderBottom: isManagerRole ? '1px solid #e2e8f0' : 'none'
-                  }}
-                >
-                  ⚙️ Salary Structures {!isManagerRole && <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>(Read-Only)</span>}
-                </Link>
-                {isManagerRole && (
+                Employees
+              </Link>
+            )}
+
+            {canSeeContracts && (
+              <Link
+                to="/contracts"
+                className={`flex items-center px-4 h-full text-sm font-semibold transition-colors border-b-2 ${
+                  location.pathname.startsWith('/contracts')
+                    ? 'border-brand-secondary text-brand-secondary'
+                    : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+                }`}
+              >
+                Contracts
+              </Link>
+            )}
+
+            <Link
+              to="/attendance"
+              className={`flex items-center px-4 h-full text-sm font-semibold transition-colors border-b-2 ${
+                location.pathname.startsWith('/attendance')
+                  ? 'border-brand-secondary text-brand-secondary'
+                  : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+              }`}
+            >
+              Attendance
+            </Link>
+
+            {/* Time Off Dropdown */}
+            <div ref={dropdownRef} className="relative h-full flex items-center">
+              <button
+                onClick={() => setTimeOffOpen(!timeOffOpen)}
+                className={`flex items-center gap-1.5 px-4 h-full text-sm font-semibold transition-colors border-b-2 outline-none ${
+                  isTimeOffActive
+                    ? 'border-brand-secondary text-brand-secondary'
+                    : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+                }`}
+              >
+                Time Off
+                <svg className={`w-4 h-4 transition-transform ${timeOffOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </button>
+
+              {timeOffOpen && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 animate-fadeIn z-50">
                   <Link
-                    to="/salary-rules"
-                    onClick={() => setPayrollOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '10px 16px',
-                      color: '#003366',
-                      fontSize: '13px',
-                      fontWeight: location.pathname.startsWith('/salary-rules') ? 'bold' : '500',
-                      backgroundColor: location.pathname.startsWith('/salary-rules') ? '#f0f4f8' : '#ffffff',
-                      textDecoration: 'none'
-                    }}
+                    to="/time-off/requests"
+                    onClick={() => setTimeOffOpen(false)}
+                    className={`block px-4 py-2.5 text-sm transition-colors ${
+                      location.pathname.includes('/requests') ? 'bg-brand-secondary/10 text-brand-secondary font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-black'
+                    }`}
                   >
-                    📐 Salary Rules
+                    Requests
                   </Link>
+                  <Link
+                    to="/time-off/allocations"
+                    onClick={() => setTimeOffOpen(false)}
+                    className={`block px-4 py-2.5 text-sm transition-colors ${
+                      location.pathname.includes('/allocations') ? 'bg-brand-secondary/10 text-brand-secondary font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-black'
+                    }`}
+                  >
+                    Allocations
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Payroll Dropdown */}
+            {canSeePayroll && (
+              <div ref={payrollRef} className="relative h-full flex items-center">
+                <button
+                  onClick={() => setPayrollOpen(!payrollOpen)}
+                  className={`flex items-center gap-1.5 px-4 h-full text-sm font-semibold transition-colors border-b-2 outline-none ${
+                    isPayrollActive
+                      ? 'border-brand-secondary text-brand-secondary'
+                      : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+                  }`}
+                >
+                  Payroll
+                  <svg className={`w-4 h-4 transition-transform ${payrollOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+
+                {payrollOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-slate-100 py-2 animate-fadeIn z-50">
+                    <Link
+                      to="/payruns"
+                      onClick={() => setPayrollOpen(false)}
+                      className={`block px-4 py-2.5 text-sm transition-colors ${
+                        location.pathname.startsWith('/payruns') ? 'bg-brand-secondary/10 text-brand-secondary font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-black'
+                      }`}
+                    >
+                      Pay Runs
+                    </Link>
+                    <Link
+                      to="/payslips"
+                      onClick={() => setPayrollOpen(false)}
+                      className={`block px-4 py-2.5 text-sm transition-colors ${
+                        location.pathname.startsWith('/payslips') ? 'bg-brand-secondary/10 text-brand-secondary font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-black'
+                      }`}
+                    >
+                      Payslips
+                    </Link>
+                    <Link
+                      to="/salary-structures"
+                      onClick={() => setPayrollOpen(false)}
+                      className={`block px-4 py-2.5 text-sm transition-colors ${
+                        location.pathname.startsWith('/salary-structures') ? 'bg-brand-secondary/10 text-brand-secondary font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-black'
+                      }`}
+                    >
+                      Salary Structures {!isManagerRole && <span className="text-[10px] text-slate-400 font-normal ml-1">(Read-Only)</span>}
+                    </Link>
+                    {isManagerRole && (
+                      <Link
+                        to="/salary-rules"
+                        onClick={() => setPayrollOpen(false)}
+                        className={`block px-4 py-2.5 text-sm transition-colors ${
+                          location.pathname.startsWith('/salary-rules') ? 'bg-brand-secondary/10 text-brand-secondary font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-black'
+                        }`}
+                      >
+                        Salary Rules
+                      </Link>
+                    )}
+                  </div>
                 )}
               </div>
             )}
-          </div>
-        )}
+          </nav>
+        </div>
       </div>
     </div>
   );

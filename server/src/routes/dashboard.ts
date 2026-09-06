@@ -256,6 +256,14 @@ router.get('/payroll-manager', authenticate, async (req: Request, res: Response)
       attendanceOverview,
       timeOffTable,
       departmentOverview,
+      recentTimeOffs: filteredTimeoffRequests.slice(0, 20).map(r => ({
+        id: r.id,
+        employeeName: r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : 'Unknown',
+        type: r.timeOffType?.name || 'Leave',
+        startDate: r.startDate,
+        endDate: r.endDate,
+        status: r.status,
+      })),
       modelsSummary: {
         employeesCount: filteredEmployees.length,
         contractsCount: contracts.length,

@@ -1,50 +1,45 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #e0e0e0;
-  --color-brand-100: #cccccc;
-  --color-brand-200: #b3b3b3;
-  --color-brand-300: #999999;
-  --color-brand-400: #808080;
-  --color-brand-500: #666666;
-  --color-brand-600: #4d4d4d;
-  --color-brand-700: #333333;
-
-  /* Legacy Colors */
-  --color-legacy-blue: #0000ff;
-  --color-legacy-darkblue: #003366;
-  --color-legacy-bg: #f4f4f4;
-  --color-legacy-border: #999999;
-  --color-legacy-text: #000000;
-  --color-legacy-header: #cccccc;
+  --color-brand-primary: #0052cc;
+  --color-brand-secondary: #6554C0;
+  --color-brand-dark: #003366;
+  
+  --color-brand-50: #eef2f6;
+  --color-brand-100: #e0e8f2;
+  --color-brand-200: #b3ccee;
+  --color-brand-300: #80abe8;
+  --color-brand-400: #4d8ce0;
+  --color-brand-500: #0052cc;
+  --color-brand-600: #0042a3;
+  --color-brand-700: #00317a;
 }
 
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: var(--color-legacy-bg);
-  color: var(--color-legacy-text);
-  font-size: 14px;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
 }
 
-a {
-  text-decoration: none;
-  color: var(--color-legacy-blue);
-}
-a:hover {
-  text-decoration: underline;
-}
-
-/* Base resets for a boxy look */
-input, button, select, textarea {
-  border-radius: 0 !important;
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom Utilities for Glassmorphism */
+@utility glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
-button {
-  box-shadow: none !important;
+@utility glass-dark {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
+

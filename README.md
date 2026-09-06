@@ -76,3 +76,21 @@ The platform enforces strict role-based data and module access:
    # Terminal 2 - Start Client
    cd client && npm run dev
    ```
+
+## 🧪 Test Accounts
+
+The following test accounts are created by `server/prisma/qa-seed.ts`:
+
+| Email | Password | Role |
+|---|---|---|
+| `admin@truprm.test` | `Admin@1234` | `ADMIN` |
+| `hr.manager@truprm.test` | `HrManager@1234` | `HR_MANAGER` |
+| `payroll.user@truprm.test` | `PayrollUser@1234` | `HR_PAYROLL_USER` |
+| `payroll.admin@truprm.test` | `PayrollAdmin@1234` | `HR_PAYROLL_ADMIN` |
+| `employee@truprm.test` | `Employee@1234` | `EMPLOYEE` |
+
+> ⚠️ These are test-only credentials using clearly fake passwords. Do not use in production.
+
+## 📋 Progress Log
+
+- **2026-09-06** — Full QA and data-integrity pass completed. 43 tests run (42 PASS, 1 FAIL). See [QA_REPORT.md](./QA_REPORT.md) for full results, 1 confirmed bug (attendance toggle unique constraint 500), and 4 observations.

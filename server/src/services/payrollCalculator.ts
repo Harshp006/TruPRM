@@ -160,6 +160,11 @@ export function calculateSalary(
     overtime_rate: context.overtimeRate ?? 0,
     unpaid_leave_days: context.unpaidLeaveDays ?? 0,
     daily_salary: context.dailySalary ?? 0,
+    // Pre-seed BASIC from contractWage so percentage rules can reference it
+    // even before a BASIC-coded salary rule runs in sequence.
+    // A rule with code=BASIC will overwrite this once it executes.
+    BASIC: context.contractWage ?? 0,
+    DAILY_SALARY: context.dailySalary ?? 0,
   };
 
   const lines: ComputedRuleLine[] = [];
