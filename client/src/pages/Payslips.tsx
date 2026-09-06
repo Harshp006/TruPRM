@@ -417,7 +417,7 @@ const Payslips: React.FC = () => {
                       download
                       className="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg shadow-sm transition"
                     >
-                      Download PDF
+                      Download
                     </a>
                   </td>
                 </tr>

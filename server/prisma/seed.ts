@@ -513,6 +513,76 @@ async function main() {
     }
   }
   console.log('✓ Realistic Time Off Requests seeded.');
+
+  // 7. Seed Demo Pay Run & Generated Payslips for Pre-Check Passing Employees
+  let marchPayrun = await prisma.payrun.findFirst({ where: { name: 'March 2026 Regular Payroll' } });
+  if (!marchPayrun) {
+    marchPayrun = await prisma.payrun.create({
+      data: {
+        name: 'March 2026 Regular Payroll',
+        periodStart: new Date('2026-03-01'),
+        periodEnd: new Date('2026-03-31'),
+        notes: 'Monthly regular payroll cycle for March 2026',
+        state: 'COMPUTED',
+      },
+    });
+  }
+
+  for (const uData of demoUsersData) {
+    // STRICT PRE-CHECK HARD GATE FILTER IN SEED
+    if (!uData.hasStructure || !uData.hasActiveContract || !uData.bankAccount || uData.wage <= 0) {
+      // FAILS PRECHECK: STRICTLY DO NOT GENERATE PAYSLIP RECORD
+      continue;
+    }
+
+    const emp = await prisma.employee.findFirst({ where: { employeeNumber: uData.empNum } });
+    if (!emp) continue;
+
+    const existingPayslip = await prisma.payslip.findFirst({
+      where: { payrunId: marchPayrun.id, employeeId: emp.id },
+    });
+
+    if (!existingPayslip) {
+      const basic = uData.wage;
+      const hra = Math.round(basic * 0.40);
+      const transport = 3000;
+      const medical = 2500;
+      const gross = basic + hra + transport + medical;
+      const pf = Math.round(basic * 0.12);
+      const pt = 200;
+      const totalDed = pf + pt;
+      const net = gross - totalDed;
+      const employerPf = pf;
+
+      await prisma.payslip.create({
+        data: {
+          payrunId: marchPayrun.id,
+          employeeId: emp.id,
+          salaryStructureId: structure.id,
+          periodStart: new Date('2026-03-01'),
+          periodEnd: new Date('2026-03-31'),
+          basicWage: basic,
+          grossWage: gross,
+          totalDeductions: totalDed,
+          netWage: net,
+          state: 'COMPUTED',
+          status: 'COMPUTED',
+          lines: {
+            create: [
+              { name: 'Basic Salary', code: 'BASIC', category: SalaryRuleCategory.EARNING, quantity: 1, rate: basic, amount: basic },
+              { name: 'House Rent Allowance', code: 'HRA', category: SalaryRuleCategory.EARNING, quantity: 1, rate: hra, amount: hra },
+              { name: 'Transport Allowance', code: 'TRANSPORT', category: SalaryRuleCategory.EARNING, quantity: 1, rate: transport, amount: transport },
+              { name: 'Medical Allowance', code: 'MEDICAL', category: SalaryRuleCategory.EARNING, quantity: 1, rate: medical, amount: medical },
+              { name: 'Provident Fund (Employee)', code: 'PF', category: SalaryRuleCategory.DEDUCTION, quantity: 1, rate: pf, amount: pf },
+              { name: 'Professional Tax', code: 'PT', category: SalaryRuleCategory.DEDUCTION, quantity: 1, rate: pt, amount: pt },
+              { name: 'Employer PF Contribution', code: 'EMPLOYER_PF', category: SalaryRuleCategory.EMPLOYER_CONTRIBUTION, quantity: 1, rate: employerPf, amount: employerPf },
+            ],
+          },
+        },
+      });
+    }
+  }
+  console.log('✓ March 2026 Pay Run and Payslips seeded for eligible pre-check passing employees.');
 }
 
 main()
