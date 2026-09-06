@@ -4,9 +4,23 @@ import { useAuth } from '../context/AuthContext';
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
-  LineChart, Line, Area, AreaChart
+  Area, AreaChart
 } from 'recharts';
-import { format, parseISO, differenceInDays, addDays } from 'date-fns';
+
+function formatDate(d: Date) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+}
+function parseISO(s: string): Date {
+  return new Date(s);
+}
+function differenceInDays(d1: Date, d2: Date): number {
+  return Math.floor((d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
+}
+function addDays(d: Date, days: number): Date {
+  const result = new Date(d);
+  result.setDate(result.getDate() + days);
+  return result;
+}
 
 interface DashboardData {
   filterOptions: { departments: string[]; employeeTypes: string[]; companies: string[]; periods: string[]; };
@@ -33,12 +47,10 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
 
   // Filters
-  const [period, setPeriod] = useState<string>('ALL');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [department, setDepartment] = useState<string>('ALL');
-  
-  const isFilterActive = period !== 'ALL' || department !== 'ALL' || Boolean(startDate) || Boolean(endDate);
+  const [period] = useState<string>('ALL');
+  const [startDate] = useState<string>('');
+  const [endDate] = useState<string>('');
+  const [department] = useState<string>('ALL');
 
   const fetchDashboard = async () => {
     try {
@@ -69,10 +81,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (token) fetchDashboard();
   }, [token, period, startDate, endDate, department]);
-
-  const handleResetFilters = () => {
-    setPeriod('ALL'); setStartDate(''); setEndDate(''); setDepartment('ALL');
-  };
 
   // Format data for charts
   const pieData = useMemo(() => {
@@ -192,7 +200,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                    {pieData.map((entry, index) => (
+                    {pieData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -221,7 +229,7 @@ export default function Dashboard() {
                 <div className="w-3/4 flex relative">
                   {Array.from({ length: 7 }).map((_, i) => (
                     <div key={i} className="flex-1 text-center text-xs text-slate-400">
-                      {format(addDays(timelineStart, i * 5), 'MMM dd')}
+                      {formatDate(addDays(timelineStart, i * 5))}
                     </div>
                   ))}
                 </div>

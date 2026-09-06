@@ -5,8 +5,8 @@ import { authenticate } from '../middleware/authenticate';
 const router = Router();
 const prisma = new PrismaClient();
 
-// GET /api/dashboard/payroll-manager
-router.get('/payroll-manager', authenticate, async (req: Request, res: Response) => {
+// GET /api/dashboard and route aliases (/stats, /summary, /user, /payroll-manager)
+router.get(['/', '/stats', '/summary', '/user', '/payroll-manager'], authenticate, async (req: Request, res: Response) => {
   try {
     const { period, department, employeeType, company, startDate, endDate } = req.query;
 
@@ -237,10 +237,37 @@ router.get('/payroll-manager', authenticate, async (req: Request, res: Response)
       };
     });
 
-    // 7. DEPARTMENT OVERVIEW TABLE
+    const activeContractsCount = contracts.filter((c) => c.status === 'ACTIVE').length;
+    const pendingTimeOffCount = filteredTimeoffRequests.filter((t) => t.status === 'CONFIRMED' || t.status === 'DRAFT' || (t.status as string) === 'PENDING').length;
+    const departmentBreakdown: Record<string, number> = {};
+    Object.entries(deptMap).forEach(([dept, data]) => {
+      departmentBreakdown[dept] = data.headcount;
+    });
+
+    const recentPayruns = payruns.slice(0, 5).map((pr) => ({
+      id: pr.id,
+      name: pr.name,
+      periodStart: pr.periodStart.toISOString(),
+      periodEnd: pr.periodEnd.toISOString(),
+      status: pr.state,
+      employeeCount: pr.payslips?.length || 0,
+      totalNet: pr.payslips?.reduce((sum, p) => sum + (Number(p.netWage) || 0), 0) || 0,
+    }));
+
     const departmentOverview = salaryCostByDept;
 
     res.json({
+      // DashboardStats format
+      totalEmployees: filteredEmployees.length,
+      activeContractsCount,
+      pendingTimeOffCount,
+      totalNetPaid: totalNetSalaryPaid,
+      attendanceRate: attendanceHealthPct,
+      departmentBreakdown,
+      recentPayruns,
+      recentAttendances: filteredAttendances.slice(0, 10),
+
+      // DashboardData format
       filterOptions,
       summaryCards: {
         totalNetSalaryPaid,
