@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { format } from 'date-fns';
+
+function formatDate(dateStr: string): string {
+  try {
+    return new Date(dateStr).toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return dateStr;
+  }
+}
 
 interface AuditLog {
   id: string;
@@ -121,7 +135,7 @@ const AuditLogs: React.FC = () => {
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 text-slate-500">
-                      {format(new Date(log.createdAt), 'MMM dd, yyyy HH:mm:ss')}
+                      {formatDate(log.createdAt)}
                     </td>
                     <td className="px-6 py-4 font-semibold text-slate-800">
                       {log.userEmail || <span className="text-slate-400 italic">System</span>}

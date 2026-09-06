@@ -55,8 +55,8 @@ export default function Dashboard() {
 
   // Filters
   const [period] = useState<string>('ALL');
-  const [startDate] = useState<string>('');
-  const [endDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [department] = useState<string>('ALL');
 
   // Handle custom date default initialization
@@ -66,10 +66,10 @@ export default function Dashboard() {
       const lastMonth = new Date(today);
       lastMonth.setMonth(today.getMonth() - 1);
       
-      setEndDate(format(today, 'yyyy-MM-dd'));
-      setStartDate(format(lastMonth, 'yyyy-MM-dd'));
+      setEndDate(today.toISOString().slice(0, 10));
+      setStartDate(lastMonth.toISOString().slice(0, 10));
     }
-  }, [period]);
+  }, [period, startDate, endDate]);
 
   const fetchDashboard = async () => {
     try {

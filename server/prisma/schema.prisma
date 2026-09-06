@@ -47,6 +47,9 @@ model Employee {
   jobTitle           String
   department         String?
   managerId          String?
+  bankName           String?
+  bankAccount        String?
+  bankIfsc           String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   attendances        Attendance[]
@@ -57,6 +60,8 @@ model Employee {
   payslips           Payslip[]
   timeOffAllocations TimeOffAllocation[]
   timeOffRequests    TimeOffRequest[]
+  compOffCredits     CompOffCredit[]
+  timeOffLedgers     TimeOffLedger[]
 }
 
 model Contract {
@@ -101,34 +106,47 @@ model ScheduleLine {
 }
 
 model Attendance {
-  id          String           @id @default(cuid())
-  employeeId  String
-  date        DateTime         @db.Date
-  checkIn     DateTime?
-  checkOut    DateTime?
-  workedHours Float?
-  status      AttendanceStatus @default(PRESENT)
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id            String           @id @default(cuid())
+  employeeId    String
+  date          DateTime         @db.Date
+  checkIn       DateTime?
+  checkOut      DateTime?
+  workedHours   Float?
+  overtimeHours Float?           @default(0)
+  status        AttendanceStatus @default(PRESENT)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  employee      Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  compOffCredits CompOffCredit[]
 
   @@unique([employeeId, date])
 }
 
 model TimeOffType {
-  id                 String              @id @default(cuid())
-  name               String              @unique
-  code               String              @unique
-  unit               String              @default("DAYS")
-  isPaid             Boolean             @default(true)
-  requiresAllocation Boolean             @default(true)
-  maxDaysPerYear     Float?
-  requiresApproval   Boolean             @default(true)
+  id                   String              @id @default(cuid())
+  name                 String              @unique
+  code                 String              @unique
+  unit                 String              @default("DAYS")
+  isPaid               Boolean             @default(true)
+  requiresAllocation   Boolean             @default(true)
+  maxDaysPerYear       Float?
+  requiresApproval     Boolean             @default(true)
+  description          String?
+  isSandwichLeave      Boolean             @default(false)
+  isEarnedThroughWork   Boolean             @default(false)
+  allocationAmount     Float?
+  isActive             Boolean             @default(true)
+  allowEmployeeRequest Boolean             @default(true)
+  allowPartialDays     Boolean             @default(false)
+  allocationMethod     String?
+  carryForwardDays     Float?              @default(0)
+  expiryDays           Int?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   allocations        TimeOffAllocation[]
   requests           TimeOffRequest[]
+  timeOffLedgers     TimeOffLedger[]
 }
 
 model TimeOffAllocation {
@@ -227,6 +245,8 @@ model Payslip {
   employeeId        String
   salaryStructureId String?
   state             PayslipState     @default(DRAFT)
+  status            String?          @default("DRAFT")
+  statusMessage     String?
   periodStart       DateTime         @db.Date
   periodEnd         DateTime         @db.Date
   basicWage         Decimal          @db.Decimal(12, 2)
@@ -241,6 +261,38 @@ model Payslip {
   lines             PayslipLine[]
 
   @@unique([payrunId, employeeId])
+}
+
+model CompOffCredit {
+  id            String      @id @default(cuid())
+  employeeId    String
+  attendanceId  String?
+  days          Float       @default(0)
+  daysEarned    Float       @default(0)
+  hoursWorked   Float?      @default(0)
+  usedDays      Float       @default(0)
+  remainingDays Float       @default(0)
+  reason        String?
+  dateEarned    DateTime?   @db.Date
+  expiryDate    DateTime?   @db.Date
+  status        String      @default("ACTIVE")
+  approvedById  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  employee      Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendance    Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+}
+
+model TimeOffLedger {
+  id            String       @id @default(cuid())
+  employeeId    String
+  timeOffTypeId String?
+  type          String
+  days          Float
+  description   String?
+  createdAt     DateTime     @default(now())
+  employee      Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  timeOffType   TimeOffType? @relation(fields: [timeOffTypeId], references: [id], onDelete: SetNull)
 }
 
 model PayslipLine {
@@ -276,6 +328,7 @@ enum Role {
   EMPLOYEE
   HR_MANAGER
   HR_PAYROLL_USER
+  HR_PAYROLL_MANAGER
   HR_PAYROLL_ADMIN
   ADMIN
 }
@@ -350,7 +403,9 @@ enum SalaryRuleCategory {
 enum PayrunState {
   DRAFT
   COMPUTED
+  VALIDATING
   VALIDATED
+  VALIDATION_ERROR
   PAID
   CANCELLED
 }
