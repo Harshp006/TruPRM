@@ -7,7 +7,6 @@ import {
   fetchTimeOffTypes,
   fetchLeaveBalances,
   fetchCompOffCredits,
-  fetchTimeOffLedger,
   fetchTimeOffRequestDetail,
   fetchTimeOffAllocationDetail,
   fetchTimeOffTypeDetail,
@@ -23,12 +22,11 @@ import {
   type TimeOffType,
   type LeaveBalanceItem,
   type CompOffCreditRecord,
-  type TimeOffLedgerRecord,
 } from '../api/timeoff';
 import { fetchEmployees, fetchEmployee, type Employee } from '../api/hr';
 
 interface TimeOffPageProps {
-  initialTab?: 'requests' | 'allocations' | 'types' | 'balances' | 'compoff' | 'ledger';
+  initialTab?: 'requests' | 'allocations' | 'types';
 }
 
 export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
@@ -51,9 +49,9 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   const { user } = useAuth();
   const isHR = user?.role && user.role !== 'EMPLOYEE';
 
-  // Active Tab state
+  // Active Tab state (only Requests, Allocations, and Time Off Types)
   const defaultTab = initialTab || (paramRequestId ? 'requests' : paramAllocationId ? 'allocations' : paramTypeId ? 'types' : 'requests');
-  const [activeTab, setActiveTab] = useState<'requests' | 'allocations' | 'types' | 'balances' | 'compoff' | 'ledger'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'requests' | 'allocations' | 'types'>(defaultTab);
 
   useEffect(() => {
     if (initialTab) {
@@ -70,12 +68,10 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   // Data states
   const [targetEmployee, setTargetEmployee] = useState<Employee | null>(null);
   const [myBalances, setMyBalances] = useState<LeaveBalanceItem[]>([]);
-  const [matrixData, setMatrixData] = useState<Array<{ employee: any; balances: LeaveBalanceItem[] }>>([]);
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [allocations, setAllocations] = useState<TimeOffAllocation[]>([]);
   const [types, setTypes] = useState<TimeOffType[]>([]);
   const [compOffCredits, setCompOffCredits] = useState<CompOffCreditRecord[]>([]);
-  const [ledgers, setLedgers] = useState<TimeOffLedgerRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -151,13 +147,12 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [reqs, allocs, typs, emps, compOffs, ledgerLogs, balanceRes] = await Promise.all([
+      const [reqs, allocs, typs, emps, compOffs, balanceRes] = await Promise.all([
         fetchTimeOffRequests({ employeeId: activeEmployeeId, search }),
         fetchTimeOffAllocations({ employeeId: activeEmployeeId }),
         fetchTimeOffTypes(),
         isHR ? fetchEmployees() : Promise.resolve([]),
         fetchCompOffCredits({ employeeId: activeEmployeeId }),
-        fetchTimeOffLedger({ employeeId: activeEmployeeId }),
         fetchLeaveBalances({ employeeId: activeEmployeeId }),
       ]);
 
@@ -166,14 +161,11 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
       setTypes(typs);
       setEmployees(emps);
       setCompOffCredits(compOffs);
-      setLedgers(ledgerLogs);
 
-      if (balanceRes && 'matrix' in balanceRes) {
-        setMatrixData(balanceRes.matrix);
-        setMyBalances([]);
-      } else if (balanceRes && 'balances' in balanceRes) {
+      if (balanceRes && 'balances' in balanceRes) {
         setMyBalances(balanceRes.balances);
-        setMatrixData([]);
+      } else {
+        setMyBalances([]);
       }
 
       // Check if URL parameters request single item details
@@ -441,33 +433,26 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs Bar */}
+      {/* Sub-Navigation Tabs Bar (Requests, Allocations, Time Off Types) */}
       <div className="flex border-b border-slate-200 gap-2 overflow-x-auto bg-white px-4 py-2.5 rounded-xl border">
-        {(
-          [
-            { id: 'requests', label: `Time Off Requests (${requests.length})`, icon: '📋', hrOnly: false },
-            { id: 'allocations', label: `Allocations (${allocations.length})`, icon: '📊', hrOnly: false },
-            { id: 'types', label: `Time Off Types (${types.length})`, icon: '⚙️', hrOnly: false },
-            { id: 'balances', label: 'Balances Matrix', icon: '🔢', hrOnly: true },
-            { id: 'compoff', label: `Comp-Off Log (${compOffCredits.length})`, icon: '⭐', hrOnly: true },
-            { id: 'ledger', label: 'Audit Ledger', icon: '📜', hrOnly: true },
-          ] as const
-        )
-          .filter((tab) => !tab.hrOnly || (isHR && !activeEmployeeId))
-          .map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`pb-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                activeTab === tab.id
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
+        {[
+          { id: 'requests' as const, label: `Time Off Requests (${requests.length})`, icon: '📋' },
+          { id: 'allocations' as const, label: `Allocations (${allocations.length})`, icon: '📊' },
+          { id: 'types' as const, label: `Time Off Types (${types.length})`, icon: '⚙️' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`pb-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              activeTab === tab.id
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <span>{tab.icon}</span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -599,85 +584,28 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
             </div>
           )}
 
-          {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {/* SECTION 2: HR MATRIX VIEW                                                    */}
-          {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {isHR && !activeEmployeeId && activeTab === 'balances' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">Employee Leave Balances Matrix</h2>
-                  <p className="text-xs text-slate-500">Overview of calculated leave balances across all employees.</p>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search employee..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
-                </div>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-bold">Employee</th>
-                      {types.map((t) => (
-                        <th key={t.id} className="px-4 py-3 text-center font-bold">
-                          {t.name} (Left)
-                        </th>
-                      ))}
-                      <th className="px-4 py-3 text-right font-bold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {matrixData.map(({ employee, balances }) => (
-                      <tr key={employee.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-slate-800">{employee.firstName} {employee.lastName}</div>
-                          <div className="text-[10px] text-slate-400">#{employee.employeeNumber} • {employee.department || 'General'}</div>
-                        </td>
-                        {types.map((t) => {
-                          const bal = balances.find((b) => b.timeOffTypeId === t.id);
-                          return (
-                            <td key={t.id} className="px-4 py-3 text-center">
-                              <span className="font-extrabold text-slate-800 text-sm">
-                                {bal ? bal.remaining : '0'}
-                              </span>
-                              {bal && bal.pending > 0 && (
-                                <span className="block text-[10px] text-amber-600 font-medium">({bal.pending} pending)</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="px-4 py-3 text-right">
-                          <Link
-                            to={`/employees/${employee.id}/timeoff`}
-                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded border border-indigo-100 transition-colors"
-                          >
-                            View Detail
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
           {/* ───────────────────────────────────────────────────────────────────────────── */}
           {/* SECTION 3: REQUESTS QUEUE                                                    */}
           {/* ───────────────────────────────────────────────────────────────────────────── */}
           {(activeTab === 'requests' || activeEmployeeId || !isHR) && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-slate-800">Time Off Requests</h2>
-                <span className="text-xs text-slate-500">{requests.length} records</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-800">Time Off Requests</h2>
+                  <p className="text-xs text-slate-500">{requests.length} records</p>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search requests..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -944,52 +872,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
             </div>
           )}
 
-          {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {/* SECTION 6: AUDIT LEDGER (HR VIEW)                                            */}
-          {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {isHR && !activeEmployeeId && activeTab === 'ledger' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 space-y-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Time Off Audit Ledger</h2>
-                <p className="text-xs text-slate-500">Traceable historical audit log explaining balance changes.</p>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Date & Time</th>
-                      <th className="px-4 py-3 text-left">Employee</th>
-                      <th className="px-4 py-3 text-left">Leave Type</th>
-                      <th className="px-4 py-3 text-left">Action Type</th>
-                      <th className="px-4 py-3 text-left">Amount</th>
-                      <th className="px-4 py-3 text-left">Balance After</th>
-                      <th className="px-4 py-3 text-left">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {ledgers.map((l) => (
-                      <tr key={l.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(l.createdAt).toLocaleString()}</td>
-                        <td className="px-4 py-3 font-bold text-slate-800">
-                          {l.employee ? `${l.employee.firstName} ${l.employee.lastName}` : '—'}
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-indigo-600">{l.timeOffType?.name}</td>
-                        <td className="px-4 py-3 font-mono text-slate-700">{l.type}</td>
-                        <td className="px-4 py-3 font-bold">
-                          <span className={l.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                            {l.amount >= 0 ? `+${l.amount}` : l.amount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-extrabold text-slate-800">{l.balanceAfter != null ? l.balanceAfter : '—'}</td>
-                        <td className="px-4 py-3 text-slate-600">{l.description}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </>
       )}
 
