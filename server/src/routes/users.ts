@@ -49,9 +49,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Generate a secure temporary password
-    const tempPassword = crypto.randomBytes(8).toString('hex');
-    const passwordHash = await bcrypt.hash(tempPassword, 12);
+    // Generate a secure temporary password unless provided
+    const rawPassword = req.body.password || crypto.randomBytes(8).toString('hex');
+    const passwordHash = await bcrypt.hash(rawPassword, 12);
 
     const data: any = {
       email,
@@ -69,7 +69,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       select: { id: true, email: true, role: true, mustChangePassword: true },
     });
 
-    res.status(201).json({ user, tempPassword });
+    res.status(201).json({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+      tempPassword: rawPassword,
+      user,
+    });
   } catch (err) {
     console.error('Create user error:', err);
     res.status(500).json({ message: 'Internal server error' });
