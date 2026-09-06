@@ -9,6 +9,7 @@ import { createNotification } from '../services/notificationService';
 const router = Router();
 
 router.use(authenticate);
+router.use(authorize('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'));
 
 // ─── Helper: find the contract whose date range CONTAINS the period ──────────
 async function findContractForPeriod(employeeId: string, periodStart: Date, periodEnd: Date) {

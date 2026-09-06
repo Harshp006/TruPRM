@@ -33,13 +33,15 @@ const TopNavbar: React.FC = () => {
   const canSeeEmployees = ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
   const canSeeContracts = ['ADMIN', 'HR_MANAGER'].includes(role);
   const canSeePayroll = ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
-  const canSeeReports = ['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
+  const canSeeReports = ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
   const isManagerRole = ['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
 
   const isTimeOffActive = location.pathname.startsWith('/time-off') || location.pathname.startsWith('/timeoff');
   const isPayrollActive = location.pathname.startsWith('/payruns') || location.pathname.startsWith('/salary-structures') || location.pathname.startsWith('/salary-rules') || (canSeePayroll && location.pathname.startsWith('/payslips'));
 
-  const portalTitle = isManagerRole
+  const portalTitle = role === 'HR_MANAGER'
+    ? 'HR Manager Portal'
+    : isManagerRole
     ? 'Manager Portal'
     : role === 'HR_PAYROLL_USER'
     ? 'Payroll User Portal'

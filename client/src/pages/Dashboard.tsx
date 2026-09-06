@@ -7,6 +7,8 @@ import {
   Area, AreaChart
 } from 'recharts';
 
+import HRManagerDashboard from './HRManagerDashboard';
+
 function formatDate(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 }
@@ -40,6 +42,11 @@ const COLORS = ['#0052cc', '#6554C0', '#003366', '#80abe8', '#b3ccee', '#e0e8f2'
 
 export default function Dashboard() {
   const { user, token } = useAuth();
+
+  if (user?.role === 'HR_MANAGER') {
+    return <HRManagerDashboard />;
+  }
+
   const navigate = useNavigate();
   const canCreateStructure = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
 

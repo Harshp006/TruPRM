@@ -8,6 +8,7 @@ import { calculateSalary } from '../services/payrollCalculator';
 const router = Router();
 
 router.use(authenticate);
+router.use(authorize('HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'));
 
 // GET /api/salary-structures
 // Returns salary structures, supports optional query params:

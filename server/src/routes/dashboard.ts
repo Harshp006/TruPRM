@@ -306,4 +306,110 @@ router.get(['/', '/stats', '/summary', '/user', '/payroll-manager'], authenticat
   }
 });
 
+// GET /api/dashboard/hr-manager — Dedicated HR Manager Dashboard Metrics (Zero Payroll Data)
+router.get('/hr-manager', authenticate, async (req: Request, res: Response) => {
+  try {
+    const [employees, contracts, attendances, timeoffRequests, workingSchedules] = await Promise.all([
+      prisma.employee.findMany({
+        include: { contracts: true },
+      }),
+      prisma.contract.findMany({
+        include: { employee: true },
+      }),
+      prisma.attendance.findMany({
+        include: { employee: true },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.timeOffRequest.findMany({
+        include: { employee: true, timeOffType: true },
+        orderBy: { startDate: 'desc' },
+      }),
+      prisma.workingSchedule.findMany({
+        include: { _count: { select: { contracts: true } } },
+      }),
+    ]);
+
+    const headcount = employees.length;
+    const activeContractsCount = contracts.filter((c) => c.status === 'ACTIVE').length;
+    
+    // Attendance Metrics
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayAttendances = attendances.filter(a => a.date && new Date(a.date).toISOString().slice(0, 10) === todayStr);
+    const presentCount = todayAttendances.filter(a => a.status === 'PRESENT' || (a.workedHours && a.workedHours >= 8)).length;
+    const lateCount = todayAttendances.filter(a => a.status === 'LATE').length;
+    const absentCount = todayAttendances.filter(a => a.status === 'ABSENT').length;
+    const attendanceHealthPct = headcount > 0 ? Math.round((presentCount / headcount) * 100) : 100;
+
+    // Pending Time Off Requests
+    const pendingRequests = timeoffRequests.filter(r => r.status === 'CONFIRMED' || r.status === 'DRAFT' || (r.status as string) === 'PENDING');
+    
+    // Department Breakdown (Headcount only)
+    const deptHeadcountMap: Record<string, number> = {};
+    employees.forEach(emp => {
+      const dept = emp.department || 'General';
+      deptHeadcountMap[dept] = (deptHeadcountMap[dept] || 0) + 1;
+    });
+
+    const departmentHeadcount = Object.entries(deptHeadcountMap).map(([department, count]) => ({
+      department,
+      count,
+    }));
+
+    // Working Schedules Summary
+    const schedulesSummary = workingSchedules.map(s => ({
+      id: s.id,
+      name: s.name,
+      hoursPerWeek: s.hoursPerWeek,
+      flexibleHours: s.flexibleHours,
+      assignedContracts: s._count?.contracts || 0,
+    }));
+
+    res.json({
+      headcount,
+      activeContractsCount,
+      attendanceHealthPct,
+      pendingTimeoffCount: pendingRequests.length,
+      todayAttendance: {
+        present: presentCount,
+        late: lateCount,
+        absent: absentCount,
+        total: todayAttendances.length,
+      },
+      departmentHeadcount,
+      pendingRequests: pendingRequests.slice(0, 10).map(r => ({
+        id: r.id,
+        employeeId: r.employeeId,
+        employeeName: r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : 'Unknown',
+        employeeNumber: r.employee?.employeeNumber || 'N/A',
+        department: r.employee?.department || 'General',
+        typeName: r.timeOffType?.name || 'Leave',
+        startDate: r.startDate,
+        endDate: r.endDate,
+        daysRequested: r.daysRequested,
+        status: r.status,
+        reason: r.reason,
+      })),
+      recentTimeOffs: timeoffRequests.slice(0, 15).map(r => ({
+        id: r.id,
+        employeeName: r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : 'Unknown',
+        typeName: r.timeOffType?.name || 'Leave',
+        startDate: r.startDate,
+        endDate: r.endDate,
+        status: r.status,
+      })),
+      schedulesSummary,
+      activeContracts: contracts.filter(c => c.status === 'ACTIVE').slice(0, 10).map(c => ({
+        id: c.id,
+        employeeName: c.employee ? `${c.employee.firstName} ${c.employee.lastName}` : 'Unknown',
+        contractType: c.contractType,
+        startDate: c.startDate,
+        endDate: c.endDate,
+      })),
+    });
+  } catch (err: any) {
+    console.error('HR Manager dashboard metrics error:', err);
+    res.status(500).json({ message: 'Failed to compute HR Manager metrics', error: err.message });
+  }
+});
+
 export default router;

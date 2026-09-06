@@ -44,7 +44,10 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
       where: { userId },
       include: {
         manager: { select: { id: true, firstName: true, lastName: true } },
-        contracts: { orderBy: { startDate: 'desc' } },
+        contracts: {
+          orderBy: { startDate: 'desc' },
+          include: { workingSchedule: true, salaryStructure: { select: { id: true, name: true } } },
+        },
         user: { select: { id: true, email: true, role: true } },
       },
     });
@@ -75,7 +78,10 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
           },
           include: {
             manager: { select: { id: true, firstName: true, lastName: true } },
-            contracts: { orderBy: { startDate: 'desc' } },
+            contracts: {
+              orderBy: { startDate: 'desc' },
+              include: { workingSchedule: true, salaryStructure: { select: { id: true, name: true } } },
+            },
             user: { select: { id: true, email: true, role: true } },
           },
         });

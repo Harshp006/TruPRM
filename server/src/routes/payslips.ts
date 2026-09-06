@@ -15,7 +15,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     const whereClause: any = {};
 
-    if (userRole === 'EMPLOYEE') {
+    if (userRole === 'EMPLOYEE' || userRole === 'HR_MANAGER') {
       // Find employee for this user
       const emp = await prisma.employee.findUnique({
         where: { userId },
@@ -89,8 +89,8 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Role-based authorization check: EMPLOYEE can only view their own payslips
-    if (userRole === 'EMPLOYEE') {
+    // Role-based authorization check: EMPLOYEE and HR_MANAGER can only view their own payslips
+    if (userRole === 'EMPLOYEE' || userRole === 'HR_MANAGER') {
       if (payslip.employee.userId !== userId) {
         res.status(403).json({ message: 'Access denied: You can only view your own payslips' });
         return;

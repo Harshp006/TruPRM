@@ -8,7 +8,7 @@ import { authorize } from '../middleware/authorize';
 const router = Router();
 
 // All routes here are ADMIN only
-router.use(authenticate, authorize('ADMIN', 'HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'));
+router.use(authenticate, authorize('ADMIN'));
 
 // GET /api/users
 router.get('/', async (req: Request, res: Response): Promise<void> => {

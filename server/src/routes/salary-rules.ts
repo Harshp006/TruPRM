@@ -7,6 +7,7 @@ import { RuleStatus, RuleCalculationType, SalaryRuleCategory } from '@prisma/cli
 const router = Router();
 
 router.use(authenticate);
+router.use(authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'));
 
 // GET /api/salary-rules?structureId=:structureId
 router.get('/', async (req: Request, res: Response): Promise<void> => {
