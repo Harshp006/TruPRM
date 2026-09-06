@@ -53,6 +53,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user) {
         const roleMeta: Record<string, { title: string; dept: string; first: string; last: string }> = {
+          HR_PAYROLL_MANAGER: { title: 'HR Payroll Manager', dept: 'Payroll & HR Operations', first: 'Sarah', last: 'Conner' },
           HR_PAYROLL_ADMIN: { title: 'HR Payroll Manager', dept: 'Payroll & HR Operations', first: 'Sarah', last: 'Conner' },
           HR_PAYROLL_USER: { title: 'HR Payroll Specialist', dept: 'Payroll Operations', first: 'Alex', last: 'Morgan' },
           HR_MANAGER: { title: 'HR Manager', dept: 'Human Resources', first: 'Rachel', last: 'Green' },

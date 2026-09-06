@@ -23,24 +23,29 @@ const TopNavbar: React.FC = () => {
 
   const role = user.role;
 
-  const canSeeEmployees = ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN'].includes(role);
+  const canSeeEmployees = ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
   const canSeeContracts = ['ADMIN', 'HR_MANAGER'].includes(role);
-  const canSeePayroll = ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN'].includes(role);
-  const canSeeReports = ['ADMIN', 'HR_PAYROLL_ADMIN'].includes(role);
+  const canSeePayroll = ['ADMIN', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
+  const canSeeReports = ['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role);
 
   const isTimeOffActive = location.pathname.startsWith('/time-off') || location.pathname.startsWith('/timeoff');
+  const portalTitle = role === 'HR_PAYROLL_MANAGER' || role === 'HR_PAYROLL_ADMIN'
+    ? 'TruPRM - HR Payroll Manager Portal'
+    : role === 'HR_PAYROLL_USER'
+    ? 'TruPRM - HR Payroll User Portal'
+    : 'TruPRM - Official Human Resources Portal';
 
   return (
     <div style={{ backgroundColor: '#003366', color: 'white', borderBottom: '2px solid #000' }}>
       {/* Utility Bar */}
       <div style={{ padding: '6px 10px', fontSize: '15px', borderBottom: '1px solid #336699', display: 'flex', justifyContent: 'space-between', backgroundColor: '#002244' }}>
-        <div>TruPRM - Official Human Resources Portal</div>
+        <div>{portalTitle}</div>
         <div style={{ display: 'flex', gap: '20px' }}>
           <span>User: {user.email} [{role}]</span>
           <a href="#" onClick={(e) => { e.preventDefault(); navigate('/profile'); }} style={{ color: 'white', textDecoration: 'underline' }}>Profile</a>
           {role === 'ADMIN' && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/users'); }} style={{ color: 'white', textDecoration: 'underline' }}>Admin</a>}
           {['ADMIN', 'HR_MANAGER'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/working-schedules'); }} style={{ color: 'white', textDecoration: 'underline' }}>Schedules</a>}
-          {['ADMIN', 'HR_PAYROLL_ADMIN'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/salary-structures'); }} style={{ color: 'white', textDecoration: 'underline' }}>Config</a>}
+          {['ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/salary-structures'); }} style={{ color: 'white', textDecoration: 'underline' }}>Config</a>}
           <a href="#" onClick={(e) => { e.preventDefault(); logout(); }} style={{ color: '#FF9999', textDecoration: 'underline' }}>Logout</a>
         </div>
       </div>

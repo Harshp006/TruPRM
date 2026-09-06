@@ -169,7 +169,7 @@ function EmployeeForm({
 
 export default function EmployeesPage() {
   const { user } = useAuth();
-  const canManageEmployees = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
+  const canManageEmployees = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [users, setUsers] = useState<User[]>([]);

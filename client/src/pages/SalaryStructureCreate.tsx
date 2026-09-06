@@ -59,7 +59,7 @@ export default function SalaryStructureCreate() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const isAllowed = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_ADMIN';
+  const isAllowed = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
 
   if (!isAllowed) {
     return (

@@ -18,6 +18,8 @@ export default function LoginPage() {
       const loggedInUser = await login(email, password);
       if (loggedInUser.mustChangePassword) {
         navigate('/change-password');
+      } else if (loggedInUser.role === 'HR_PAYROLL_MANAGER' || loggedInUser.role === 'HR_PAYROLL_ADMIN' || loggedInUser.role === 'ADMIN') {
+        navigate('/dashboard');
       } else if (loggedInUser.role === 'HR_PAYROLL_USER') {
         navigate('/payruns');
       } else if (loggedInUser.role === 'HR_MANAGER') {

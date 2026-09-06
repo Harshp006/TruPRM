@@ -68,7 +68,7 @@ app.get(
 app.get(
   '/api/hr-only',
   authenticate,
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   (_req: Request, res: Response) => {
     res.json({ message: 'Welcome, HR team!' });
   }

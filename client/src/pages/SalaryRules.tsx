@@ -5,7 +5,7 @@ import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
 
 export default function SalaryRulesPage() {
   const { user } = useAuth();
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
 
   const [rules, setRules] = useState<SalaryRule[]>([]);
   const [loading, setLoading] = useState(true);

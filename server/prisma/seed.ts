@@ -33,10 +33,16 @@ async function main() {
       data: {
         email: 'payroll.manager@truprm.com',
         passwordHash,
-        role: Role.HR_PAYROLL_ADMIN,
+        role: Role.HR_PAYROLL_MANAGER,
       },
     });
     console.log(`✓ HR Payroll Manager created: payroll.manager@truprm.com / password123`);
+  } else {
+    payrollManager = await prisma.user.update({
+      where: { id: payrollManager.id },
+      data: { role: Role.HR_PAYROLL_MANAGER },
+    });
+    console.log(`✓ HR Payroll Manager updated role to HR_PAYROLL_MANAGER`);
   }
 
   // 3. HR PAYROLL USER

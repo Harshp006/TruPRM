@@ -13,7 +13,7 @@ export default function SalaryStructures() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const canManage = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_ADMIN';
+  const canManage = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
 
   const [structures, setStructures] = useState<SalaryStructure[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

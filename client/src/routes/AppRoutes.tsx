@@ -39,6 +39,7 @@ const AppRoutes: React.FC = () => {
                 allowedRoles={[
                   'HR_MANAGER',
                   'HR_PAYROLL_USER',
+                  'HR_PAYROLL_MANAGER',
                   'HR_PAYROLL_ADMIN',
                   'ADMIN',
                 ]}
@@ -70,6 +71,7 @@ const AppRoutes: React.FC = () => {
                 allowedRoles={[
                   'HR_MANAGER',
                   'HR_PAYROLL_USER',
+                  'HR_PAYROLL_MANAGER',
                   'HR_PAYROLL_ADMIN',
                   'ADMIN',
                 ]}
@@ -83,7 +85,7 @@ const AppRoutes: React.FC = () => {
           <Route
             element={
               <ProtectedRoute
-                allowedRoles={['HR_PAYROLL_ADMIN', 'ADMIN']}
+                allowedRoles={['HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN']}
               />
             }
           >
@@ -94,7 +96,7 @@ const AppRoutes: React.FC = () => {
           <Route
             element={
               <ProtectedRoute
-                allowedRoles={['HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN']}
+                allowedRoles={['HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN']}
               />
             }
           >
@@ -108,6 +110,7 @@ const AppRoutes: React.FC = () => {
               <ProtectedRoute
                 allowedRoles={[
                   'HR_PAYROLL_USER',
+                  'HR_PAYROLL_MANAGER',
                   'HR_PAYROLL_ADMIN',
                   'ADMIN'
                 ]}

@@ -12,6 +12,7 @@ export type Role =
   | 'EMPLOYEE'
   | 'HR_MANAGER'
   | 'HR_PAYROLL_USER'
+  | 'HR_PAYROLL_MANAGER'
   | 'HR_PAYROLL_ADMIN'
   | 'ADMIN';
 
@@ -34,10 +35,26 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setTokenState] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [token, setTokenState] = useState<string | null>(() => {
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken);
+    }
+    return savedToken;
+  });
 
   const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     setTokenState(null);
     setToken(null);
@@ -65,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data: { token: string; user: AuthUser } = await res.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
     setToken(data.token);
     setTokenState(data.token);
     setUser(data.user);
@@ -72,15 +91,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    if (!token) return;
-    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setUser(data.user);
+    const currentToken = token || localStorage.getItem('token');
+    if (!currentToken) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/me`, {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+      } else {
+        logout();
+      }
+    } catch {
+      // Ignore network errors on background refresh
     }
-  }, [token]);
+  }, [token, logout]);
+
+  // On initial mount, verify user session with /auth/me
+  useEffect(() => {
+    if (token) {
+      refreshUser();
+    }
+  }, []);
 
   return (
     <AuthContext.Provider

@@ -468,7 +468,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 // Manual attendance record creation (HR & Admin)
 router.post(
   '/',
-  authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { employeeId, date, checkIn, checkOut, status, notes, overtimeHours } = req.body;
@@ -517,7 +517,7 @@ router.post(
 // Manual attendance record edit (HR & Admin)
 router.put(
   '/:id',
-  authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -567,7 +567,7 @@ router.put(
 // ─── DELETE /api/attendance/:id ───────────────────────────────────────────────
 router.delete(
   '/:id',
-  authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_ADMIN'),
+  authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

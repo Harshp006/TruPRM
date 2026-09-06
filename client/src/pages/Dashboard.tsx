@@ -66,7 +66,7 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
 
-  const canCreateStructure = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_ADMIN';
+  const canCreateStructure = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);

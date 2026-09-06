@@ -34,7 +34,7 @@ async function findContractForPeriod(employeeId: string, periodStart: Date, peri
 // GET /api/payruns/eligible-employees?periodStart=YYYY-MM-DD&periodEnd=YYYY-MM-DD
 router.get(
   '/eligible-employees',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER', 'HR_MANAGER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER', 'HR_MANAGER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { periodStart, periodEnd } = req.query;
@@ -103,7 +103,7 @@ router.get(
 // GET /api/payruns
 router.get(
   '/',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER', 'HR_MANAGER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER', 'HR_MANAGER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const payruns = await prisma.payrun.findMany({
@@ -135,7 +135,7 @@ router.get(
 // GET /api/payruns/:id
 router.get(
   '/:id',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER', 'HR_MANAGER', 'EMPLOYEE'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER', 'HR_MANAGER', 'EMPLOYEE'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -233,7 +233,7 @@ async function performEmployeePrecheck(employeeId: string, periodStart: Date, pe
 // POST /api/payruns — Create payrun with selected employee IDs (Enforces Hard Gate)
 router.post(
   '/',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, periodStart, periodEnd, notes, employeeIds, salaryStructureId } = req.body;
@@ -441,7 +441,7 @@ async function evaluatePayrunPrecheck(payrunId: string) {
 // POST /api/payruns/:id/validate — Pre-Computation Check
 router.post(
   '/:id/validate',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -466,7 +466,7 @@ router.post(
 // POST /api/payruns/:id/compute — DRAFT → COMPUTED
 router.post(
   '/:id/compute',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -623,7 +623,7 @@ router.post(
 // PUT /api/payruns/:id/state — State Transition / Lock
 router.put(
   '/:id/state',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -691,7 +691,7 @@ router.put(
 // DELETE /api/payruns/:id
 router.delete(
   '/:id',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

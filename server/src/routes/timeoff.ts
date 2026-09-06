@@ -92,7 +92,7 @@ router.get('/types', async (req: Request, res: Response): Promise<void> => {
 // POST /api/timeoff/types (Create configurable timeoff type)
 router.post(
   '/types',
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const {
@@ -146,7 +146,7 @@ router.post(
 // PUT /api/timeoff/types/:id (Update configurable type)
 router.put(
   '/types/:id',
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = String(req.params.id);
@@ -272,7 +272,7 @@ router.get('/allocations/:id', async (req: Request, res: Response): Promise<void
 // POST /api/timeoff/allocations
 router.post(
   '/allocations',
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { employeeId, timeOffTypeId, year, daysAllocated, validityFrom, validityTo } = req.body;
@@ -478,7 +478,7 @@ router.post('/requests', async (req: Request, res: Response): Promise<void> => {
 // POST /api/timeoff/requests/:id/approve - Approve leave request
 router.post(
   '/requests/:id/approve',
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const requestId = String(req.params.id);
@@ -594,7 +594,7 @@ router.post(
 // POST /api/timeoff/requests/:id/refuse - Refuse leave request
 router.post(
   '/requests/:id/refuse',
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const requestId = String(req.params.id);
@@ -714,7 +714,7 @@ router.get('/compoff', async (req: Request, res: Response): Promise<void> => {
 // POST /api/timeoff/compoff/credit - Award Comp-Off Credit (HR only)
 router.post(
   '/compoff/credit',
-  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { employeeId, dateEarned, daysEarned, hoursWorked, reason, attendanceId, expiryDays } = req.body;

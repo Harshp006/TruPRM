@@ -177,7 +177,7 @@ function ContractForm({
 
 export default function ContractsPage() {
   const { user } = useAuth();
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'HR_MANAGER' || user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN';
   const [searchParams] = useSearchParams();
   const filterEmployeeId = searchParams.get('employeeId');
 

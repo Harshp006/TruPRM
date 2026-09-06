@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { fetchUsers, createUser, updateUser, resetPassword, type User } from '../api/users';
 import { fetchEmployees, type Employee } from '../api/hr';
 
-const ROLES = ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'] as const;
+const ROLES = ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'] as const;
 
 const roleBadgeColor: Record<string, string> = {
   ADMIN: 'bg-red-100 text-red-800',
   HR_MANAGER: 'bg-purple-100 text-purple-800',
+  HR_PAYROLL_MANAGER: 'bg-orange-100 text-orange-800',
   HR_PAYROLL_ADMIN: 'bg-orange-100 text-orange-800',
   HR_PAYROLL_USER: 'bg-blue-100 text-blue-800',
   EMPLOYEE: 'bg-green-100 text-green-800',

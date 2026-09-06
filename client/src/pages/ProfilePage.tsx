@@ -57,6 +57,7 @@ export default function ProfilePage() {
   const formatRole = (role?: string) => {
     if (!role) return 'Employee';
     switch (role) {
+      case 'HR_PAYROLL_MANAGER':
       case 'HR_PAYROLL_ADMIN':
         return 'HR Payroll Manager';
       case 'HR_PAYROLL_USER':

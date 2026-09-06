@@ -33,7 +33,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // POST /api/salary-rules
 router.post(
   '/',
-  authorize('HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const {
@@ -122,7 +122,7 @@ router.post(
 // PUT /api/salary-rules/:id
 router.put(
   '/:id',
-  authorize('HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -208,7 +208,7 @@ router.put(
 // Deletes rule ONLY IF SAFE according to architecture. Prefer deactivation over deletion if used in history!
 router.delete(
   '/:id',
-  authorize('HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

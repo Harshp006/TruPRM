@@ -114,7 +114,7 @@ router.post('/:id/calculate', async (req: Request, res: Response): Promise<void>
 // Restrict to HR Payroll Manager (HR_PAYROLL_ADMIN) and ADMIN
 router.post(
   '/',
-  authorize('HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const {
@@ -189,7 +189,7 @@ router.post(
 // PUT /api/salary-structures/:id
 router.put(
   '/:id',
-  authorize('HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
@@ -282,7 +282,7 @@ router.put(
 // DELETE /api/salary-structures/:id
 router.delete(
   '/:id',
-  authorize('HR_PAYROLL_ADMIN', 'ADMIN'),
+  authorize('HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

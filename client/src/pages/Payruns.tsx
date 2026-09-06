@@ -119,7 +119,7 @@ const Payruns: React.FC = () => {
   };
 
   // Role permissions
-  const isHRUser = user?.role === 'HR_PAYROLL_ADMIN' || user?.role === 'HR_PAYROLL_USER' || user?.role === 'ADMIN';
+  const isHRUser = user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN' || user?.role === 'HR_PAYROLL_USER' || user?.role === 'ADMIN';
   const isHRManagerViewOnly = user?.role === 'HR_MANAGER';
 
   const fetchPayruns = async () => {
