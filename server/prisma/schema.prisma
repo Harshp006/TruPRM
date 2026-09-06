@@ -381,10 +381,12 @@ enum SalaryRuleCategory {
 
 enum PayrunState {
   DRAFT
-  DONE
-  COMPUTED
+  VALIDATING
+  VALIDATION_ERROR
   VALIDATED
+  COMPUTED
   PAID
+  DONE
   CANCELLED
 }
 

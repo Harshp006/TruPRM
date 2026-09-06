@@ -7,7 +7,7 @@ interface Payrun {
   name: string;
   periodStart: string;
   periodEnd: string;
-  state: 'DRAFT' | 'DONE' | 'CANCELLED' | 'COMPUTED' | 'VALIDATED' | 'PAID';
+  state: 'DRAFT' | 'VALIDATING' | 'VALIDATION_ERROR' | 'VALIDATED' | 'COMPUTED' | 'DONE' | 'PAID' | 'CANCELLED';
   notes?: string;
   createdAt: string;
   totalGross?: number;
@@ -519,6 +519,9 @@ const Payruns: React.FC = () => {
             options: [
               { label: 'All Statuses', value: 'ALL' },
               { label: 'Draft', value: 'DRAFT' },
+              { label: 'Validation Error', value: 'VALIDATION_ERROR' },
+              { label: 'Validated', value: 'VALIDATED' },
+              { label: 'Computed', value: 'COMPUTED' },
               { label: 'Payslip Generated', value: 'DONE' },
               { label: 'Cancelled', value: 'CANCELLED' },
             ],
@@ -578,9 +581,23 @@ const Payruns: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredPayruns.map((pr) => (
-                <tr key={pr.id} className="hover:bg-indigo-50/40 transition">
+                <tr
+                  key={pr.id}
+                  className={`transition ${
+                    pr.state === 'VALIDATION_ERROR'
+                      ? 'bg-rose-50/40 hover:bg-rose-50 border-l-4 border-l-rose-500'
+                      : 'hover:bg-indigo-50/40'
+                  }`}
+                >
                   <td className="py-3.5 px-4 font-bold text-slate-900">
-                    {pr.name}
+                    <div className="flex items-center space-x-2">
+                      <span>{pr.name}</span>
+                      {pr.state === 'VALIDATION_ERROR' && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-300">
+                          VALIDATION ERROR
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4 text-slate-600">
                     {new Date(pr.periodStart).toLocaleDateString()} -{' '}
@@ -592,19 +609,33 @@ const Payruns: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3.5 px-4 font-extrabold text-slate-900">
-                    ₹{pr.totalNet ? pr.totalNet.toLocaleString() : '0'}
+                    ₹{pr.totalNet ? Number(pr.totalNet).toLocaleString('en-IN') : '0'}
                   </td>
                   <td className="py-3.5 px-4">
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                        pr.state === 'DONE'
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
+                        pr.state === 'VALIDATION_ERROR'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs'
+                          : pr.state === 'VALIDATING'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                          : pr.state === 'VALIDATED'
+                          ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                          : pr.state === 'COMPUTED'
+                          ? 'bg-indigo-100 text-indigo-800 border border-indigo-300'
+                          : pr.state === 'DONE' || pr.state === 'PAID'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : pr.state === 'DRAFT'
-                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
                           : 'bg-slate-100 text-slate-700 border border-slate-300'
                       }`}
                     >
-                      {pr.state === 'DONE' ? 'PAYSLIP GENERATED' : pr.state}
+                      {pr.state === 'VALIDATION_ERROR'
+                        ? 'VALIDATION ERROR'
+                        : pr.state === 'VALIDATING'
+                        ? 'VALIDATING...'
+                        : pr.state === 'VALIDATED'
+                        ? 'VALIDATED'
+                        : pr.state === 'DONE' || pr.state === 'PAID'
+                        ? 'PAYSLIP GENERATED'
+                        : pr.state}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right space-x-2">

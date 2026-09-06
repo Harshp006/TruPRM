@@ -294,7 +294,7 @@ router.post(
             periodStart: pStart,
             periodEnd: pEnd,
             notes: notes ? String(notes) : null,
-            state: PayrunState.DRAFT,
+            state: blockedEmployees.length > 0 ? PayrunState.VALIDATION_ERROR : PayrunState.DRAFT,
           },
         });
 
@@ -393,8 +393,12 @@ async function evaluatePayrunPrecheck(payrunId: string) {
     }
   }
 
-  const updatedPayrun = await prisma.payrun.findUnique({
+  const hasValidationErrors = warnings.length > 0;
+  const targetState = hasValidationErrors ? PayrunState.VALIDATION_ERROR : PayrunState.VALIDATED;
+
+  const updatedPayrun = await prisma.payrun.update({
     where: { id: payrunId },
+    data: { state: targetState },
     include: {
       payslips: {
         include: { employee: true, salaryStructure: true, lines: { orderBy: { createdAt: 'asc' } } },

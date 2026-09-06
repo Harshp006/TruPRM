@@ -557,6 +557,19 @@ async function main() {
     });
   }
 
+  let febAuditPayrun = await prisma.payrun.findFirst({ where: { name: 'February 2026 Audit Payroll' } });
+  if (!febAuditPayrun) {
+    febAuditPayrun = await prisma.payrun.create({
+      data: {
+        name: 'February 2026 Audit Payroll',
+        periodStart: new Date('2026-02-01'),
+        periodEnd: new Date('2026-02-28'),
+        notes: 'Pre-computation check failed: Selected employees contain invalid bank/contract configurations.',
+        state: 'VALIDATION_ERROR',
+      },
+    });
+  }
+
   for (const uData of demoUsersData) {
     // STRICT PRE-CHECK HARD GATE FILTER IN SEED
     if (!uData.hasStructure || !uData.hasActiveContract || !uData.bankAccount || uData.wage <= 0) {
