@@ -20,6 +20,8 @@ export default function LoginPage() {
         navigate('/change-password');
       } else if (loggedInUser.role === 'EMPLOYEE') {
         navigate('/payslips');
+      } else if (loggedInUser.role === 'HR_PAYROLL_USER') {
+        navigate('/payruns');
       } else {
         navigate('/dashboard');
       }

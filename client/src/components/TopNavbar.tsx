@@ -67,15 +67,15 @@ const TopNavbar: React.FC = () => {
       <div style={{ backgroundColor: '#c0c0c0', borderTop: '2px solid #fff', borderBottom: '2px solid #666', padding: '6px 10px', display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
         {/* Reports / Home */}
         <Link
-          to="/dashboard"
+          to={role === 'EMPLOYEE' ? '/payslips' : role === 'HR_PAYROLL_USER' ? '/payruns' : '/dashboard'}
           style={{
             padding: '6px 15px',
-            backgroundColor: location.pathname.startsWith('/dashboard') ? '#e0e0e0' : '#d4d0c8',
+            backgroundColor: (location.pathname.startsWith('/dashboard') || (role === 'HR_PAYROLL_USER' && location.pathname.startsWith('/payruns'))) ? '#e0e0e0' : '#d4d0c8',
             color: '#000',
-            border: location.pathname.startsWith('/dashboard') ? '2px inset #fff' : '2px outset #fff',
-            borderColor: location.pathname.startsWith('/dashboard') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+            border: (location.pathname.startsWith('/dashboard') || (role === 'HR_PAYROLL_USER' && location.pathname.startsWith('/payruns'))) ? '2px inset #fff' : '2px outset #fff',
+            borderColor: (location.pathname.startsWith('/dashboard') || (role === 'HR_PAYROLL_USER' && location.pathname.startsWith('/payruns'))) ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
             fontSize: '14px',
-            fontWeight: location.pathname.startsWith('/dashboard') ? 'bold' : 'normal',
+            fontWeight: (location.pathname.startsWith('/dashboard') || (role === 'HR_PAYROLL_USER' && location.pathname.startsWith('/payruns'))) ? 'bold' : 'normal',
             textDecoration: 'none',
             display: 'inline-block'
           }}

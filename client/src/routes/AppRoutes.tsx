@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
 
+import { useAuth } from '../context/AuthContext';
+
 import Dashboard from '../pages/Dashboard';
 import Employees from '../pages/Employees';
 import Contracts from '../pages/Contracts';
@@ -20,6 +22,17 @@ import Payslips from '../pages/Payslips';
 import Users from '../pages/Users';
 import Settings from '../pages/Settings';
 
+const RoleDefaultRedirect: React.FC = () => {
+  const { user } = useAuth();
+  if (user?.role === 'EMPLOYEE') {
+    return <Navigate to="/payslips" replace />;
+  }
+  if (user?.role === 'HR_PAYROLL_USER') {
+    return <Navigate to="/payruns" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+};
+
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -28,9 +41,12 @@ const AppRoutes: React.FC = () => {
         <Route path="/change-password" element={<ChangePasswordPage />} />
 
         <Route element={<Layout />}>
+          <Route path="/" element={<RoleDefaultRedirect />} />
+
           {/* Default Dashboard (Role Aware) */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<ProfilePage />} />
+
 
           {/* Directory & Contracts (HR roles & Admin) */}
           <Route
@@ -132,7 +148,7 @@ const AppRoutes: React.FC = () => {
       </Route>
 
       {/* Catch-all redirect */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<RoleDefaultRedirect />} />
     </Routes>
   );
 };

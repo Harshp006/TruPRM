@@ -20,7 +20,8 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   
   // Prevent going to change-password if they don't need to
   if (!user?.mustChangePassword && location.pathname === '/change-password') {
-    return <Navigate to="/dashboard" replace />;
+    const target = user?.role === 'EMPLOYEE' ? '/payslips' : user?.role === 'HR_PAYROLL_USER' ? '/payruns' : '/dashboard';
+    return <Navigate to={target} replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
