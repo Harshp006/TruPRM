@@ -104,6 +104,34 @@ const Payruns: React.FC = () => {
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Auto-calculate period end date to exactly 1 month after start date
+  const calculateOneMonthLater = (startDateStr: string): string => {
+    if (!startDateStr) return '';
+    const parts = startDateStr.split('-');
+    if (parts.length !== 3) return '';
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+
+    const targetMonth = month + 1;
+    const newYear = year + Math.floor(targetMonth / 12);
+    const newMonth = targetMonth % 12;
+
+    const lastDayOfTargetMonth = new Date(Date.UTC(newYear, newMonth + 1, 0)).getUTCDate();
+    const newDay = Math.min(day, lastDayOfTargetMonth);
+
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    return `${newYear}-${pad(newMonth + 1)}-${pad(newDay)}`;
+  };
+
+  const handleStartDateChange = (newStartDate: string) => {
+    setFormPeriodStart(newStartDate);
+    const autoEndDate = calculateOneMonthLater(newStartDate);
+    setFormPeriodEnd(autoEndDate);
+  };
+
   // Dynamic Employee & Structure state for Create Pay Run
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [salaryStructures, setSalaryStructures] = useState<SalaryStructure[]>([]);
@@ -784,7 +812,7 @@ const Payruns: React.FC = () => {
                       <input
                         type="date"
                         value={formPeriodStart}
-                        onChange={(e) => setFormPeriodStart(e.target.value)}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
                         className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                         required
                       />
