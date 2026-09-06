@@ -171,11 +171,13 @@ async function performEmployeePrecheck(employeeId: string, periodStart: Date, pe
     where: { id: employeeId },
     include: {
       contracts: {
-        where: {
-          startDate: { lte: periodStart },
-          OR: [{ endDate: null }, { endDate: { gte: periodEnd } }],
+        include: {
+          salaryStructure: {
+            include: {
+              rules: { where: { status: 'ACTIVE' } },
+            },
+          },
         },
-        include: { salaryStructure: true },
         orderBy: { startDate: 'desc' },
       },
     },
@@ -183,35 +185,40 @@ async function performEmployeePrecheck(employeeId: string, periodStart: Date, pe
 
   const errors: string[] = [];
   if (!employee) {
-    return { passed: false, errors: ['Employee profile record not found.'] };
+    return { passed: false, errors: ['Employee profile record not found'] };
   }
 
-  const empName = `${employee.firstName} ${employee.lastName}`;
-
-  // Rule 1: Active contract check
+  // 1. Contract check: Find active contract
   const activeContract = employee.contracts.find((c) => c.status === 'ACTIVE');
   if (!activeContract) {
-    errors.push(`Employee ${empName} does not have an active employment contract.`);
+    errors.push('No active contract found');
   }
 
-  // Rule 2: Salary Structure check
-  if (activeContract && !activeContract.salaryStructure) {
-    errors.push(`Employee ${empName} does not have an assigned Salary Structure.`);
+  // 2. Salary Structure check
+  const structure = activeContract?.salaryStructure;
+  if (activeContract && !structure) {
+    errors.push('No salary structure assigned');
+  } else if (structure) {
+    // 3. Salary Rules / Components check
+    if (!structure.rules || structure.rules.length === 0) {
+      errors.push('Missing required salary rule/component');
+    }
   }
 
-  // Rule 3: Basic Wage check
-  if (activeContract && Number(activeContract.wageAmount || 0) <= 0) {
-    errors.push(`Employee ${empName} has an invalid or 0 basic wage configured.`);
+  // 4. Basic Salary check
+  const wage = activeContract ? Number(activeContract.wageAmount || 0) : 0;
+  if (activeContract && wage <= 0) {
+    errors.push('Missing basic salary (wage <= 0)');
   }
 
-  // Rule 4: Bank Details check
+  // 5. Bank Details check
   if (!employee.bankAccount || !employee.bankIfsc) {
-    errors.push(`Employee ${empName} is missing required bank details (Account Number or IFSC code).`);
+    errors.push('Incomplete bank/payment details');
   }
 
-  // Rule 5: Profile Completeness check
+  // 6. Required Profile Info check
   if (!employee.employeeNumber || !employee.hireDate) {
-    errors.push(`Employee ${empName} has incomplete required profile details (missing Employee Number or Hire Date).`);
+    errors.push('Incomplete payroll configuration');
   }
 
   return {
@@ -219,7 +226,7 @@ async function performEmployeePrecheck(employeeId: string, periodStart: Date, pe
     errors,
     employee,
     contract: activeContract,
-    salaryStructure: activeContract?.salaryStructure,
+    salaryStructure: structure,
   };
 }
 
@@ -506,6 +513,18 @@ router.post(
         };
 
         const calcResult = calculateSalary(structure as any, context);
+
+        if (calcResult.netSalary <= 0 || calcResult.grossSalary <= 0) {
+          await prisma.payslipLine.deleteMany({ where: { payslipId: payslip.id } });
+          await prisma.payslip.delete({ where: { id: payslip.id } });
+          results.push({
+            employeeId: payslip.employeeId,
+            employeeName: empName,
+            status: 'FAILED',
+            message: 'Invalid payroll result (Net Pay <= 0). Payslip generation blocked.',
+          });
+          continue;
+        }
 
         await prisma.$transaction(async (tx) => {
           await tx.payslipLine.deleteMany({ where: { payslipId: payslip.id } });

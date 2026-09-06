@@ -35,6 +35,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    whereClause.netWage = { gt: 0 };
+
     const payslips = await prisma.payslip.findMany({
       where: whereClause,
       include: {

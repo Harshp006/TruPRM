@@ -536,6 +536,14 @@ async function main() {
     console.log(`✓ Purged legacy payslip records for ${failingEmpIds.length} pre-check failing employees.`);
   }
 
+  // Purge any legacy zero-net pay / invalid payslips
+  await prisma.payslipLine.deleteMany({
+    where: { payslip: { OR: [{ netWage: { lte: 0 } }, { grossWage: { lte: 0 } }] } },
+  });
+  await prisma.payslip.deleteMany({
+    where: { OR: [{ netWage: { lte: 0 } }, { grossWage: { lte: 0 } }] },
+  });
+
   let marchPayrun = await prisma.payrun.findFirst({ where: { name: 'March 2026 Regular Payroll' } });
   if (!marchPayrun) {
     marchPayrun = await prisma.payrun.create({
