@@ -124,7 +124,26 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// GET /api/payslips/:id/pdf - Stream printable PDF statement (with strict role check)
+import PDFDocument from 'pdfkit';
+
+// Amount in Words helper function
+function numberToWords(num: number): string {
+  const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const inWords = (n: number): string => {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '');
+    if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' and ' + inWords(n % 100) : '');
+    if (n < 100000) return inWords(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + inWords(n % 1000) : '');
+    if (n < 10000000) return inWords(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + inWords(n % 100000) : '');
+    return inWords(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + inWords(n % 10000000) : '');
+  };
+  const integerPart = Math.floor(Math.abs(num));
+  if (integerPart === 0) return 'Rupees Zero Only';
+  return 'Rupees ' + inWords(integerPart) + ' Only';
+}
+
+// GET /api/payslips/:id/pdf - Stream official binary PDF statement
 router.get('/:id/pdf', async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
@@ -151,99 +170,137 @@ router.get('/:id/pdf', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const pStart = new Date(payslip.periodStart);
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthName = monthNames[pStart.getMonth()] || 'Period';
+    const yearNum = pStart.getFullYear();
+
+    const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
+    const fileName = `${sanitize(payslip.employee.firstName)}-${sanitize(payslip.employee.lastName)}-${monthName}-${yearNum}-Payslip.pdf`;
+
+    const isDownload = req.query.download === 'true' || req.query.disposition === 'attachment';
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `${isDownload ? 'attachment' : 'inline'}; filename="${fileName}"`
+    );
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    doc.pipe(res);
+
+    // Header Background Accent Bar
+    doc.rect(40, 40, 515, 60).fill('#003366');
+    
+    // Header Title & Company Details
+    doc.fillColor('#FFFFFF').fontSize(20).font('Helvetica-Bold').text('PeoplePay360 / TruPRM', 55, 52);
+    doc.fontSize(10).font('Helvetica').text('Official Human Resources & Payroll Voucher', 55, 78);
+
+    // Header Payslip Ref & Date
+    doc.fillColor('#FFFFFF').fontSize(11).font('Helvetica-Bold').text(`Ref: #${payslip.id.slice(-8).toUpperCase()}`, 380, 55, { align: 'right', width: 160 });
+    doc.fontSize(9).font('Helvetica').text(`Issued: ${new Date(payslip.periodEnd).toLocaleDateString()}`, 380, 75, { align: 'right', width: 160 });
+
+    doc.moveDown(2);
+
+    // Employee & Payroll Meta Data Box
+    let y = 115;
+    doc.rect(40, y, 515, 95).fillAndStroke('#F8FAFC', '#E2E8F0');
+    doc.fillColor('#0F172A');
+
+    // Left Column Info
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('EMPLOYEE NAME', 55, y + 10);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#0F172A').text(`${payslip.employee.firstName} ${payslip.employee.lastName}`, 55, y + 22);
+
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('EMPLOYEE ID', 55, y + 38);
+    doc.fontSize(9).font('Helvetica').fillColor('#0F172A').text(`#${payslip.employee.employeeNumber}`, 55, y + 50);
+
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('DESIGNATION & DEPT', 55, y + 66);
+    doc.fontSize(9).font('Helvetica').fillColor('#0F172A').text(`${payslip.employee.jobTitle} • ${payslip.employee.department || 'Operations'}`, 55, y + 78);
+
+    // Right Column Info
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('PAY PERIOD', 310, y + 10);
+    doc.fontSize(9).font('Helvetica').fillColor('#0F172A').text(`${new Date(payslip.periodStart).toLocaleDateString()} to ${new Date(payslip.periodEnd).toLocaleDateString()}`, 310, y + 22);
+
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('SALARY STRUCTURE', 310, y + 38);
+    doc.fontSize(9).font('Helvetica-Bold').fillColor('#4338CA').text(`${payslip.salaryStructure?.name || 'Standard Structure'}`, 310, y + 50);
+
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('BANK DETAILS', 310, y + 66);
+    const bankStr = payslip.employee.bankAccount ? `${payslip.employee.bankName || 'Bank'} (A/C: XXXX-${payslip.employee.bankAccount.slice(-4)})` : 'Direct Account Transfer';
+    doc.fontSize(9).font('Helvetica').fillColor('#0F172A').text(bankStr, 310, y + 78);
+
+    // Line items breakdown
     const earnings = payslip.lines.filter((l) => l.category === 'EARNING' || l.category === 'BASIC' || l.category === 'ALLOWANCE' || l.category === 'GROSS');
     const deductions = payslip.lines.filter((l) => l.category === 'DEDUCTION');
+    const employerContribs = payslip.lines.filter((l) => l.category === 'EMPLOYER_CONTRIBUTION');
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Payslip - ${payslip.employee.firstName} ${payslip.employee.lastName} (${payslip.periodStart.toISOString().slice(0, 10)})</title>
-        <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 40px; color: #1e293b; background-color: #fff; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #003366; padding-bottom: 15px; margin-bottom: 20px; }
-          .title { font-size: 24px; font-weight: bold; color: #003366; }
-          .subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
-          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 25px; font-size: 13px; }
-          .meta-item label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; display: block; }
-          .meta-item span { font-weight: bold; color: #0f172a; }
-          .table-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
-          td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
-          .amount { text-align: right; font-weight: bold; }
-          .footer-box { background: #0f172a; color: white; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-          .net-label { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
-          .net-amount { font-size: 28px; font-weight: bold; color: #34d399; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="title">TruPRM / PeoplePay360</div>
-            <div class="subtitle">Official Salary Statement & Payslip Voucher</div>
-          </div>
-          <div style="text-align: right;">
-            <div style="font-size: 14px; font-weight: bold; color: #003366;">Ref: #${payslip.id.slice(-8).toUpperCase()}</div>
-            <div class="subtitle">Generated Date: ${new Date().toLocaleDateString()}</div>
-          </div>
-        </div>
+    y = 225;
+    const colWidth = 245;
 
-        <div class="meta-grid">
-          <div class="meta-item"><label>Employee</label><span>${payslip.employee.firstName} ${payslip.employee.lastName} (#${payslip.employee.employeeNumber})</span></div>
-          <div class="meta-item"><label>Department / Role</label><span>${payslip.employee.department || 'Operations'} • ${payslip.employee.jobTitle || 'Staff'}</span></div>
-          <div class="meta-item"><label>Pay Period</label><span>${new Date(payslip.periodStart).toLocaleDateString()} - ${new Date(payslip.periodEnd).toLocaleDateString()}</span></div>
-          <div class="meta-item"><label>Salary Structure</label><span>${payslip.salaryStructure?.name || 'Standard Structure'}</span></div>
-        </div>
+    // EARNINGS TABLE
+    doc.rect(40, y, colWidth, 22).fill('#ECFDF5');
+    doc.fillColor('#065F46').fontSize(9).font('Helvetica-Bold').text('EARNINGS', 50, y + 6);
+    doc.text('AMOUNT (INR)', 40 + colWidth - 95, y + 6, { width: 85, align: 'right' });
 
-        <div class="table-container">
-          <div>
-            <h4 style="margin: 0 0 10px 0; color: #047857;">EARNINGS</h4>
-            <table>
-              <thead><tr><th>Item</th><th class="amount">Amount</th></tr></thead>
-              <tbody>
-                ${earnings.map((e) => `<tr><td>${e.name}</td><td class="amount">₹${Number(e.amount).toLocaleString()}</td></tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <h4 style="margin: 0 0 10px 0; color: #be123c;">DEDUCTIONS</h4>
-            <table>
-              <thead><tr><th>Item</th><th class="amount">Amount</th></tr></thead>
-              <tbody>
-                ${deductions.map((d) => `<tr><td>${d.name}</td><td class="amount">₹${Number(d.amount).toLocaleString()}</td></tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
+    let ey = y + 26;
+    for (const e of earnings) {
+      doc.fillColor('#334155').fontSize(8.5).font('Helvetica').text(e.name, 50, ey);
+      doc.font('Helvetica-Bold').text(`₹${Number(e.amount).toLocaleString()}`, 40 + colWidth - 95, ey, { width: 85, align: 'right' });
+      ey += 16;
+    }
 
-        <div class="footer-box">
-          <div>
-            <div>Basic Wage: ₹${Number(payslip.basicWage || 0).toLocaleString()}</div>
-            <div>Gross Salary: ₹${Number(payslip.grossWage || 0).toLocaleString()}</div>
-          </div>
-          <div style="text-align: right;">
-            <div class="net-label">NET PAYABLE AMOUNT</div>
-            <div class="net-amount">₹${Number(payslip.netWage || 0).toLocaleString()}</div>
-          </div>
-        </div>
+    // DEDUCTIONS TABLE
+    doc.rect(310, y, colWidth, 22).fill('#FFF1F2');
+    doc.fillColor('#9F1239').fontSize(9).font('Helvetica-Bold').text('DEDUCTIONS', 320, y + 6);
+    doc.text('AMOUNT (INR)', 310 + colWidth - 95, y + 6, { width: 85, align: 'right' });
 
-        <script>
-          window.onload = function() {
-            if (window.location.search.includes('download=true')) {
-              window.print();
-            }
-          };
-        </script>
-      </body>
-      </html>
-    `;
+    let dy = y + 26;
+    for (const d of deductions) {
+      doc.fillColor('#334155').fontSize(8.5).font('Helvetica').text(d.name, 320, dy);
+      doc.fillColor('#BE123C').font('Helvetica-Bold').text(`₹${Number(d.amount).toLocaleString()}`, 310 + colWidth - 95, dy, { width: 85, align: 'right' });
+      dy += 16;
+    }
 
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
+    // EMPLOYER CONTRIBUTIONS TABLE (If any)
+    let nextY = Math.max(ey, dy) + 15;
+    if (employerContribs.length > 0) {
+      doc.rect(40, nextY, 515, 20).fill('#EEF2FF');
+      doc.fillColor('#3730A3').fontSize(8.5).font('Helvetica-Bold').text('EMPLOYER CONTRIBUTIONS (Statutory Benefits Excluded from Net Pay)', 50, nextY + 5);
+      nextY += 24;
+      for (const ec of employerContribs) {
+        doc.fillColor('#475569').fontSize(8).font('Helvetica').text(ec.name, 50, nextY);
+        doc.fillColor('#3730A3').font('Helvetica-Bold').text(`₹${Number(ec.amount).toLocaleString()}`, 460, nextY, { width: 85, align: 'right' });
+        nextY += 16;
+      }
+      nextY += 10;
+    }
+
+    // SUMMARY BOX
+    const sumY = Math.max(nextY, 390);
+    doc.rect(40, sumY, 515, 70).fill('#0F172A');
+
+    const grossVal = Number(payslip.grossWage || 0);
+    const netVal = Number(payslip.netWage || 0);
+    const dedVal = Math.max(0, grossVal - netVal);
+
+    doc.fillColor('#CBD5E1').fontSize(9).font('Helvetica').text(`Gross Earnings: ₹${grossVal.toLocaleString()}`, 55, sumY + 12);
+    doc.fillColor('#FCA5A5').fontSize(9).font('Helvetica').text(`Total Deductions: ₹${dedVal.toLocaleString()}`, 55, sumY + 28);
+    doc.fillColor('#E2E8F0').fontSize(8.5).font('Helvetica-Oblique').text(`In Words: ${numberToWords(netVal)}`, 55, sumY + 46);
+
+    doc.fillColor('#94A3B8').fontSize(8).font('Helvetica-Bold').text('NET PAYABLE SALARY', 350, sumY + 14, { align: 'right', width: 190 });
+    doc.fillColor('#34D399').fontSize(22).font('Helvetica-Bold').text(`₹${netVal.toLocaleString()}`, 350, sumY + 28, { align: 'right', width: 190 });
+
+    // FOOTER
+    doc.fillColor('#94A3B8').fontSize(7.5).font('Helvetica').text(
+      'This is a system-generated official payslip document and does not require a physical signature. Confidential • TruPRM Systems © 2026',
+      40,
+      540,
+      { align: 'center', width: 515 }
+    );
+
+    doc.end();
   } catch (err) {
     console.error('Fetch payslip PDF error:', err);
-    res.status(500).send('Internal server error');
+    res.status(500).send('Internal server error generating PDF document');
   }
 });
 

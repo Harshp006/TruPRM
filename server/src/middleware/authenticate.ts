@@ -18,12 +18,12 @@ declare global {
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : (req.query.token ? String(req.query.token) : null);
+
+  if (!token) {
     res.status(401).json({ message: 'No token provided' });
     return;
   }
-
-  const token = authHeader.split(' ')[1];
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     res.status(500).json({ message: 'JWT secret not configured' });

@@ -196,13 +196,28 @@ async function main() {
     console.log(`✓ HR Payroll Manager employee profile created.`);
   }
 
-  // 5. ADDITIONAL DEMO EMPLOYEES & USERS
+  // 5. 20 REALISTIC DEMO EMPLOYEES & USERS WITH PRE-CHECK TEST CASES
   const demoUsersData = [
-    { email: 'john.doe@truprm.com', empNum: 'EMP001', first: 'John', last: 'Doe', title: 'Software Engineer', dept: 'Engineering', color: '#6366f1' },
-    { email: 'aarav.mehta@truprm.com', empNum: 'EMP002', first: 'Aarav', last: 'Mehta', title: 'Senior Software Engineer', dept: 'Engineering', color: '#059669' },
-    { email: 'sara.khan@truprm.com', empNum: 'EMP003', first: 'Sara', last: 'Khan', title: 'Product Designer', dept: 'Product & UX', color: '#d97706' },
-    { email: 'john.dsouza@truprm.com', empNum: 'EMP004', first: 'John', last: 'Dsouza', title: 'QA Lead Specialist', dept: 'Quality Assurance', color: '#2563eb' },
-    { email: 'meha.patel@truprm.com', empNum: 'EMP005', first: 'Meha', last: 'Patel', title: 'HR Operations Associate', dept: 'Human Resources', color: '#7c3aed' },
+    { email: 'john.doe@truprm.com', empNum: 'EMP001', first: 'John', last: 'Doe', title: 'Software Engineer', dept: 'Engineering', color: '#6366f1', wage: 60000, bankAccount: '501004829104', bankName: 'HDFC Bank', bankIfsc: 'HDFC0001234', hasStructure: true, hasActiveContract: true },
+    { email: 'aarav.mehta@truprm.com', empNum: 'EMP002', first: 'Aarav', last: 'Mehta', title: 'Senior Software Engineer', dept: 'Engineering', color: '#059669', wage: 75000, bankAccount: '000401582910', bankName: 'ICICI Bank', bankIfsc: 'ICIC0000004', hasStructure: true, hasActiveContract: true },
+    { email: 'sara.khan@truprm.com', empNum: 'EMP003', first: 'Sara', last: 'Khan', title: 'Product Designer', dept: 'Product & UX', color: '#d97706', wage: 65000, bankAccount: null, bankName: null, bankIfsc: null, hasStructure: true, hasActiveContract: true }, // FAIL: Missing Bank Details
+    { email: 'john.dsouza@truprm.com', empNum: 'EMP004', first: 'John', last: 'Dsouza', title: 'QA Lead Specialist', dept: 'Quality Assurance', color: '#2563eb', wage: 58000, bankAccount: '918010029481', bankName: 'Axis Bank', bankIfsc: 'UTIB0000123', hasStructure: true, hasActiveContract: true },
+    { email: 'meha.patel@truprm.com', empNum: 'EMP005', first: 'Meha', last: 'Patel', title: 'HR Operations Associate', dept: 'Human Resources', color: '#7c3aed', wage: 52000, bankAccount: '30491829104', bankName: 'SBI', bankIfsc: 'SBIN0000456', hasStructure: false, hasActiveContract: true }, // FAIL: Missing Salary Structure
+    { email: 'priya.sharma@truprm.com', empNum: 'EMP006', first: 'Priya', last: 'Sharma', title: 'Frontend Developer', dept: 'Engineering', color: '#ec4899', wage: 62000, bankAccount: '30491829105', bankName: 'SBI', bankIfsc: 'SBIN0000456', hasStructure: true, hasActiveContract: true },
+    { email: 'rohan.gupta@truprm.com', empNum: 'EMP007', first: 'Rohan', last: 'Gupta', title: 'Backend Architect', dept: 'Engineering', color: '#10b981', wage: 90000, bankAccount: '6019284019', bankName: 'Kotak Bank', bankIfsc: 'KKBK0000789', hasStructure: true, hasActiveContract: true },
+    { email: 'rohan.sharma@truprm.com', empNum: 'EMP008', first: 'Rohan', last: 'Sharma', title: 'DevOps Engineer', dept: 'Infrastructure', color: '#ef4444', wage: 70000, bankAccount: '501002233441', bankName: 'HDFC Bank', bankIfsc: 'HDFC0001234', hasStructure: true, hasActiveContract: false }, // FAIL: Missing Active Contract
+    { email: 'kavya.reddy@truprm.com', empNum: 'EMP009', first: 'Kavya', last: 'Reddy', title: 'UI/UX Researcher', dept: 'Product & UX', color: '#8b5cf6', wage: 55000, bankAccount: '501009988776', bankName: 'HDFC Bank', bankIfsc: 'HDFC0001234', hasStructure: true, hasActiveContract: true },
+    { email: 'anish.kumar@truprm.com', empNum: 'EMP010', first: 'Anish', last: 'Kumar', title: 'Systems Administrator', dept: 'IT Operations', color: '#f59e0b', wage: 50000, bankAccount: '000408877665', bankName: 'ICICI Bank', bankIfsc: 'ICIC0000004', hasStructure: true, hasActiveContract: true },
+    { email: 'ananya.verma@truprm.com', empNum: 'EMP011', first: 'Ananya', last: 'Verma', title: 'Data Analyst', dept: 'Analytics', color: '#14b8a6', wage: 0, bankAccount: '918010055443', bankName: 'Axis Bank', bankIfsc: 'UTIB0000123', hasStructure: true, hasActiveContract: true }, // FAIL: Invalid 0 Wage
+    { email: 'karan.malhotra@truprm.com', empNum: 'EMP012', first: 'Karan', last: 'Malhotra', title: 'Full Stack Developer', dept: 'Engineering', color: '#3b82f6', wage: 68000, bankAccount: '30491822334', bankName: 'SBI', bankIfsc: 'SBIN0000456', hasStructure: true, hasActiveContract: true },
+    { email: 'neha.joshi@truprm.com', empNum: 'EMP013', first: 'Neha', last: 'Joshi', title: 'Marketing Manager', dept: 'Marketing', color: '#06b6d4', wage: 72000, bankAccount: '501002233445', bankName: 'HDFC Bank', bankIfsc: 'HDFC0001234', hasStructure: true, hasActiveContract: true },
+    { email: 'rahul.nair@truprm.com', empNum: 'EMP014', first: 'Rahul', last: 'Nair', title: 'Technical Writer', dept: 'Operations', color: '#64748b', wage: 48000, bankAccount: '60192776655', bankName: 'Kotak Bank', bankIfsc: 'KKBK0000789', hasStructure: true, hasActiveContract: true },
+    { email: 'vikram.malhotra@truprm.com', empNum: 'EMP015', first: 'Vikram', last: 'Malhotra', title: 'Security Specialist', dept: 'Security', color: '#dc2626', wage: 80000, bankAccount: null, bankName: null, bankIfsc: null, hasStructure: true, hasActiveContract: true }, // FAIL: Missing Bank Details
+    { email: 'tanvi.kapoor@truprm.com', empNum: 'EMP016', first: 'Tanvi', last: 'Kapoor', title: 'Scrum Master', dept: 'Engineering', color: '#9333ea', wage: 74000, bankAccount: '000403344556', bankName: 'ICICI Bank', bankIfsc: 'ICIC0000004', hasStructure: true, hasActiveContract: true },
+    { email: 'aditya.rao@truprm.com', empNum: 'EMP017', first: 'Aditya', last: 'Rao', title: 'Business Analyst', dept: 'Product & UX', color: '#0284c7', wage: 60000, bankAccount: '918010011223', bankName: 'Axis Bank', bankIfsc: 'UTIB0000123', hasStructure: true, hasActiveContract: true },
+    { email: 'neha.kapoor@truprm.com', empNum: 'EMP018', first: 'Neha', last: 'Kapoor', title: 'Content Specialist', dept: 'Marketing', color: '#e11d48', wage: 45000, bankAccount: null, bankName: null, bankIfsc: null, hasStructure: false, hasActiveContract: true }, // FAIL: Multiple failures (Bank & Salary structure)
+    { email: 'siddharth.roy@truprm.com', empNum: 'EMP019', first: 'Siddharth', last: 'Roy', title: 'Database Administrator', dept: 'Infrastructure', color: '#15803d', wage: 78000, bankAccount: '501007788990', bankName: 'HDFC Bank', bankIfsc: 'HDFC0001234', hasStructure: true, hasActiveContract: true },
+    { email: 'ishita.banerjee@truprm.com', empNum: 'EMP020', first: 'Ishita', last: 'Banerjee', title: 'Talent Acquisition Lead', dept: 'Human Resources', color: '#b91c1c', wage: 64000, bankAccount: '30491855667', bankName: 'SBI', bankIfsc: 'SBIN0000456', hasStructure: true, hasActiveContract: true },
   ];
 
   const seededEmployees: Record<string, any> = {};
@@ -230,21 +245,37 @@ async function main() {
           hireDate: new Date('2025-01-15'),
           jobTitle: uData.title,
           department: uData.dept,
+          bankAccount: uData.bankAccount,
+          bankName: uData.bankName,
+          bankIfsc: uData.bankIfsc,
           color: uData.color,
         },
       });
+    } else {
+      empRecord = await prisma.employee.update({
+        where: { id: empRecord.id },
+        data: {
+          bankAccount: uData.bankAccount,
+          bankName: uData.bankName,
+          bankIfsc: uData.bankIfsc,
+        },
+      });
+    }
 
+    const existingContract = await prisma.contract.findFirst({ where: { employeeId: empRecord.id } });
+    if (!existingContract) {
       await prisma.contract.create({
         data: {
           employeeId: empRecord.id,
           contractType: ContractType.FULL_TIME,
-          status: ContractStatus.ACTIVE,
+          status: uData.hasActiveContract ? ContractStatus.ACTIVE : ContractStatus.TERMINATED,
           startDate: new Date('2025-01-15'),
-          wageAmount: 60000,
-          salaryStructureId: structure.id,
+          wageAmount: uData.wage,
+          salaryStructureId: uData.hasStructure ? structure.id : null,
         },
       });
     }
+
     seededEmployees[uData.first] = empRecord;
   }
   console.log(`✓ Seeded ${Object.keys(seededEmployees).length} demo employees with contracts.`);

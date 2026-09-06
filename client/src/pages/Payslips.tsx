@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SearchFilterBar, EmptyState, type FilterOption } from '../components/SearchFilterBar';
-// @ts-ignore
-import html2pdf from 'html2pdf.js';
 
 interface PayslipLine {
   id: string;
@@ -63,10 +61,7 @@ const Payslips: React.FC = () => {
   const [structureFilter, setStructureFilter] = useState('ALL');
   const [sortOption, setSortOption] = useState('PERIOD_NEWEST');
 
-  // Detail Modal
-  const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [fetchingDetail, setFetchingDetail] = useState(false);
+
 
   const fetchPayslips = async () => {
     try {
@@ -112,36 +107,6 @@ const Payslips: React.FC = () => {
     }
   }, [token, payrunFilter]);
 
-  const handleOpenDetail = async (id: string) => {
-    try {
-      setFetchingDetail(true);
-      setIsDetailOpen(true);
-      const res = await fetch(`http://localhost:5000/api/payslips/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSelectedPayslip(data);
-      }
-    } catch (err) {
-      console.error('Error fetching payslip detail:', err);
-    } finally {
-      setFetchingDetail(false);
-    }
-  };
-
-  const handleDownloadPDF = () => {
-    const element = document.getElementById('payslip-print-content');
-    if (!element) return;
-    const opt = {
-      margin: 10,
-      filename: `payslip-${selectedPayslip?.employee?.employeeNumber}-${selectedPayslip?.periodStart}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
-    };
-    html2pdf().set(opt).from(element).save();
-  };
 
   // Dynamic Department Options from Payslips
   const departmentOptions = useMemo(() => {
@@ -439,16 +404,17 @@ const Payslips: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right space-x-2">
-                    <button
-                      onClick={() => handleOpenDetail(p.id)}
+                    <a
+                      href={`http://localhost:5000/api/payslips/${p.id}/pdf?disposition=inline&token=${token}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition"
                     >
                       View PDF
-                    </button>
+                    </a>
                     <a
-                      href={`http://localhost:5000/api/payslips/${p.id}/pdf?download=true`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={`http://localhost:5000/api/payslips/${p.id}/pdf?download=true&token=${token}`}
+                      download
                       className="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg shadow-sm transition"
                     >
                       Download PDF
@@ -461,181 +427,6 @@ const Payslips: React.FC = () => {
         </div>
       )}
 
-      {/* Itemized Payslip Detail Modal */}
-      {isDetailOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-            {/* Modal Top Controls */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 print:hidden">
-              <span className="font-bold text-slate-700">Official Salary Statement</span>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg shadow-sm transition"
-                >
-                  <span>Download PDF</span>
-                </button>
-                <button
-                  onClick={() => setIsDetailOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Statement Body */}
-            {fetchingDetail || !selectedPayslip ? (
-              <div className="p-12 text-center text-slate-500">
-                Loading payslip details...
-              </div>
-            ) : (
-              <div id="payslip-print-content" className="p-8 space-y-6 overflow-y-auto flex-1 font-sans">
-                {/* Payslip Header Card */}
-                <div className="flex justify-between items-start border-b border-slate-200 pb-6">
-                  <div>
-                    <div className="flex items-center space-x-2 text-indigo-600 font-bold text-xl">
-                      <span>PeoplePay360</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Payroll Management System
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-block bg-slate-100 text-slate-700 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider">
-                      Payslip Statement
-                    </span>
-                    <p className="text-xs text-slate-500 mt-2">
-                      Ref: #{selectedPayslip.id.slice(-8).toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Employee Info Grid */}
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-semibold block">EMPLOYEE NAME</span>
-                    <span className="font-bold text-slate-800 text-sm">
-                      {selectedPayslip.employee.firstName} {selectedPayslip.employee.lastName}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-semibold block">EMPLOYEE CODE</span>
-                    <span className="font-semibold text-slate-800">
-                      #{selectedPayslip.employee.employeeNumber}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-semibold block">PAYROLL PERIOD</span>
-                    <span className="font-semibold text-slate-800">
-                      {new Date(selectedPayslip.periodStart).toLocaleDateString()} -{' '}
-                      {new Date(selectedPayslip.periodEnd).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-semibold block">SALARY STRUCTURE</span>
-                    <span className="font-semibold text-indigo-700">
-                      {selectedPayslip.salaryStructure?.name || 'Standard Structure'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Breakdown Tables Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* EARNINGS */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-100 text-emerald-800 font-bold text-xs uppercase tracking-wider flex justify-between">
-                      <span>Earnings Line Items</span>
-                      <span>Amount</span>
-                    </div>
-                    <table className="w-full text-xs">
-                      <tbody className="divide-y divide-slate-100">
-                        {selectedPayslip.breakdown?.earnings.map((line) => (
-                          <tr key={line.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-4 font-medium text-slate-700">
-                              {line.name} ({line.code})
-                            </td>
-                            <td className="py-2.5 px-4 text-right font-bold text-slate-800">
-                              ₹{Number(line.amount).toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* DEDUCTIONS */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="bg-rose-50 px-4 py-2.5 border-b border-rose-100 text-rose-800 font-bold text-xs uppercase tracking-wider flex justify-between">
-                      <span>Deduction Line Items</span>
-                      <span>Amount</span>
-                    </div>
-                    <table className="w-full text-xs">
-                      <tbody className="divide-y divide-slate-100">
-                        {selectedPayslip.breakdown?.deductions.map((line) => (
-                          <tr key={line.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-4 font-medium text-slate-700">
-                              {line.name} ({line.code})
-                            </td>
-                            <td className="py-2.5 px-4 text-right font-bold text-rose-600">
-                              ₹{Number(line.amount).toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* EMPLOYER CONTRIBUTIONS (DISTINCT & SEPARATE) */}
-                {selectedPayslip.breakdown?.employerContributions &&
-                  selectedPayslip.breakdown.employerContributions.length > 0 && (
-                    <div className="border border-indigo-100 rounded-xl overflow-hidden bg-indigo-50/30">
-                      <div className="bg-indigo-100/60 px-4 py-2.5 border-b border-indigo-200 text-indigo-900 font-bold text-xs uppercase tracking-wider flex justify-between">
-                        <span>Employer Contributions (Excluded from Net Salary)</span>
-                        <span>Amount</span>
-                      </div>
-                      <table className="w-full text-xs">
-                        <tbody className="divide-y divide-indigo-100/50">
-                          {selectedPayslip.breakdown.employerContributions.map((line) => (
-                            <tr key={line.id}>
-                              <td className="py-2 px-4 font-medium text-indigo-800">
-                                {line.name} ({line.code})
-                              </td>
-                              <td className="py-2 px-4 text-right font-bold text-indigo-900">
-                                ₹{Number(line.amount).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                {/* PAYSLIP TOTALS FOOTER */}
-                <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div className="space-y-1 text-xs text-slate-300">
-                    <div>
-                      Gross Earnings: <span className="font-semibold text-white">₹{Number(selectedPayslip.grossWage || 0).toLocaleString()}</span>
-                    </div>
-                    <div>
-                      Total Deductions: <span className="font-semibold text-rose-300">₹{(Number(selectedPayslip.grossWage || 0) - Number(selectedPayslip.netWage || 0)).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-indigo-300 uppercase font-semibold tracking-wider">
-                      NET PAYABLE SALARY
-                    </div>
-                    <div className="text-3xl font-extrabold text-emerald-400">
-                      ₹{Number(selectedPayslip.netWage || 0).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -165,7 +165,65 @@ router.get(
   }
 );
 
-// POST /api/payruns — Create payrun with selected employee IDs
+// Helper: Comprehensive Precheck Validation per Employee
+async function performEmployeePrecheck(employeeId: string, periodStart: Date, periodEnd: Date) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: {
+      contracts: {
+        where: {
+          startDate: { lte: periodStart },
+          OR: [{ endDate: null }, { endDate: { gte: periodEnd } }],
+        },
+        include: { salaryStructure: true },
+        orderBy: { startDate: 'desc' },
+      },
+    },
+  });
+
+  const errors: string[] = [];
+  if (!employee) {
+    return { passed: false, errors: ['Employee profile record not found.'] };
+  }
+
+  const empName = `${employee.firstName} ${employee.lastName}`;
+
+  // Rule 1: Active contract check
+  const activeContract = employee.contracts.find((c) => c.status === 'ACTIVE');
+  if (!activeContract) {
+    errors.push(`Employee ${empName} does not have an active employment contract.`);
+  }
+
+  // Rule 2: Salary Structure check
+  if (activeContract && !activeContract.salaryStructure) {
+    errors.push(`Employee ${empName} does not have an assigned Salary Structure.`);
+  }
+
+  // Rule 3: Basic Wage check
+  if (activeContract && Number(activeContract.wageAmount || 0) <= 0) {
+    errors.push(`Employee ${empName} has an invalid or 0 basic wage configured.`);
+  }
+
+  // Rule 4: Bank Details check
+  if (!employee.bankAccount || !employee.bankIfsc) {
+    errors.push(`Employee ${empName} is missing required bank details (Account Number or IFSC code).`);
+  }
+
+  // Rule 5: Profile Completeness check
+  if (!employee.employeeNumber || !employee.hireDate) {
+    errors.push(`Employee ${empName} has incomplete required profile details (missing Employee Number or Hire Date).`);
+  }
+
+  return {
+    passed: errors.length === 0,
+    errors,
+    employee,
+    contract: activeContract,
+    salaryStructure: activeContract?.salaryStructure,
+  };
+}
+
+// POST /api/payruns — Create payrun with selected employee IDs (Enforces Hard Gate)
 router.post(
   '/',
   authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
@@ -196,6 +254,32 @@ router.post(
         return;
       }
 
+      const blockedEmployees: Array<{ employeeId: string; employeeName: string; errors: string[] }> = [];
+      const eligibleIds: string[] = [];
+
+      // Run Hard Gate Precheck for all selected employees
+      for (const empId of selectedIds) {
+        const check = await performEmployeePrecheck(empId, pStart, pEnd);
+        if (!check.passed) {
+          const empName = check.employee ? `${check.employee.firstName} ${check.employee.lastName}` : empId;
+          blockedEmployees.push({
+            employeeId: empId,
+            employeeName: empName,
+            errors: check.errors,
+          });
+        } else {
+          eligibleIds.push(empId);
+        }
+      }
+
+      if (eligibleIds.length === 0) {
+        res.status(400).json({
+          message: 'All selected employees failed pre-computation checks. Payslip generation was blocked.',
+          blockedEmployees,
+        });
+        return;
+      }
+
       const payrun = await prisma.$transaction(async (tx) => {
         const pr = await tx.payrun.create({
           data: {
@@ -207,7 +291,7 @@ router.post(
           },
         });
 
-        for (const empId of selectedIds) {
+        for (const empId of eligibleIds) {
           const contract = await tx.contract.findFirst({
             where: {
               employeeId: empId,
@@ -229,7 +313,7 @@ router.post(
               grossWage: 0,
               netWage: 0,
               totalDeductions: 0,
-              status: 'DRAFT',
+              status: 'PASSED',
               statusMessage: null,
             },
           });
@@ -245,7 +329,10 @@ router.post(
         },
       });
 
-      res.status(201).json(fullPayrun);
+      res.status(201).json({
+        ...fullPayrun,
+        blockedEmployees,
+      });
     } catch (err) {
       console.error('Create payrun error:', err);
       res.status(500).json({ message: 'Internal server error' });
@@ -253,7 +340,7 @@ router.post(
   }
 );
 
-// Helper function: Evaluate Pre-Check per employee & persist status in DB
+// Helper function: Evaluate Pre-Check per employee & delete/block failing DB records
 async function evaluatePayrunPrecheck(payrunId: string) {
   const payrun = await prisma.payrun.findUnique({
     where: { id: payrunId },
@@ -269,49 +356,34 @@ async function evaluatePayrunPrecheck(payrunId: string) {
 
   if (!payrun) return { warnings: [], payrun: null };
 
-  const warnings: Array<{ employeeId: string; employeeName: string; reason: string }> = [];
+  const warnings: Array<{ employeeId: string; employeeName: string; errors: string[] }> = [];
 
   for (const payslip of payrun.payslips) {
+    const check = await performEmployeePrecheck(payslip.employeeId, payrun.periodStart, payrun.periodEnd);
     const empName = `${payslip.employee.firstName} ${payslip.employee.lastName}`;
-    const contract = await prisma.contract.findFirst({
-      where: {
+
+    if (!check.passed) {
+      warnings.push({
         employeeId: payslip.employeeId,
-        status: 'ACTIVE',
-      },
-      include: { salaryStructure: true },
-      orderBy: { startDate: 'desc' },
-    });
+        employeeName: empName,
+        errors: check.errors,
+      });
 
-    if (!contract) {
-      const reason = `Employee ${empName} does not have an active contract.`;
-      warnings.push({ employeeId: payslip.employeeId, employeeName: empName, reason });
+      // HARD GATE: Do NOT create or keep Payslip DB record for failing employees
+      await prisma.payslip.delete({
+        where: { id: payslip.id },
+      });
+    } else {
       await prisma.payslip.update({
         where: { id: payslip.id },
-        data: { status: 'FAILED', statusMessage: reason },
+        data: {
+          status: 'PASSED',
+          statusMessage: null,
+          salaryStructureId: check.salaryStructure?.id,
+          basicWage: Number(check.contract?.wageAmount || 0),
+        },
       });
-      continue;
     }
-
-    const structure = contract.salaryStructure || payslip.salaryStructure;
-    if (!structure) {
-      const reason = `Employee ${empName} does not have an assigned salary structure.`;
-      warnings.push({ employeeId: payslip.employeeId, employeeName: empName, reason });
-      await prisma.payslip.update({
-        where: { id: payslip.id },
-        data: { status: 'FAILED', statusMessage: reason },
-      });
-      continue;
-    }
-
-    await prisma.payslip.update({
-      where: { id: payslip.id },
-      data: {
-        status: 'PASSED',
-        statusMessage: null,
-        salaryStructureId: structure.id,
-        basicWage: Number(contract.wageAmount || 0),
-      },
-    });
   }
 
   const updatedPayrun = await prisma.payrun.findUnique({
@@ -358,14 +430,10 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
-      let payrun = await prisma.payrun.findUnique({
-        where: { id },
-        include: {
-          payslips: {
-            include: { employee: true, salaryStructure: true },
-          },
-        },
-      });
+      
+      // Re-run Hard Gate Precheck to ensure backend validation
+      const precheckResult = await evaluatePayrunPrecheck(id);
+      const payrun = precheckResult.payrun;
 
       if (!payrun) {
         res.status(404).json({ message: 'Pay run not found' });
@@ -375,14 +443,11 @@ router.post(
       const eligiblePayslips = payrun.payslips.filter(
         (p) => p.status === 'PASSED' || p.status === 'COMPUTED'
       );
-      const skippedPayslips = payrun.payslips.filter(
-        (p) => p.status === 'FAILED'
-      );
 
       if (eligiblePayslips.length === 0) {
         res.status(400).json({
-          message: 'No eligible employees passed pre-computation check. Please run Pre-Computation Check first to evaluate eligible employees.',
-          skippedCount: skippedPayslips.length,
+          message: 'No eligible employees passed pre-computation check. All candidates were blocked by pre-check hard gate.',
+          warnings: precheckResult.warnings,
           computedCount: 0,
         });
         return;
@@ -477,16 +542,6 @@ router.post(
         });
       }
 
-      for (const payslip of skippedPayslips) {
-        const empName = `${payslip.employee.firstName} ${payslip.employee.lastName}`;
-        results.push({
-          employeeId: payslip.employeeId,
-          employeeName: empName,
-          status: 'FAILED',
-          message: payslip.statusMessage || 'Pre-check failed',
-        });
-      }
-
       const updatedPayrun = await prisma.payrun.update({
         where: { id },
         data: { state: PayrunState.COMPUTED },
@@ -501,7 +556,8 @@ router.post(
         message: 'Payroll computation complete',
         total: payrun.payslips.length,
         computedCount: eligiblePayslips.length,
-        skippedCount: skippedPayslips.length,
+        blockedCount: precheckResult.warnings.length,
+        warnings: precheckResult.warnings,
         results,
         payrun: updatedPayrun,
       });
