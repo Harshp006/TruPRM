@@ -80,6 +80,30 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   const [selectedAllocation, setSelectedAllocation] = useState<TimeOffAllocation | null>(null);
   const [selectedType, setSelectedType] = useState<TimeOffType | null>(null);
 
+  const [selectedReqBalances, setSelectedReqBalances] = useState<LeaveBalanceItem[]>([]);
+  const [loadingReqBalances, setLoadingReqBalances] = useState(false);
+
+  useEffect(() => {
+    if (selectedRequest?.employeeId) {
+      setLoadingReqBalances(true);
+      fetchLeaveBalances({ employeeId: selectedRequest.employeeId })
+        .then((res) => {
+          if (res && 'balances' in res) {
+            setSelectedReqBalances(res.balances);
+          } else {
+            setSelectedReqBalances([]);
+          }
+        })
+        .catch((err) => {
+          console.error('Error fetching request employee balances:', err);
+          setSelectedReqBalances([]);
+        })
+        .finally(() => setLoadingReqBalances(false));
+    } else {
+      setSelectedReqBalances([]);
+    }
+  }, [selectedRequest?.id, selectedRequest?.employeeId]);
+
   const [editingType, setEditingType] = useState<TimeOffType | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -711,76 +735,268 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
       {/* DETAIL MODAL 1: TIME OFF REQUEST DETAIL (`Time Off Request / <Employee>`)     */}
       {/* ───────────────────────────────────────────────────────────────────────────── */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 border border-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 space-y-6 border border-slate-100 my-8 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
-                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Time Off Request Detail</span>
+                <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider">
+                  Time Off Request Detail
+                </span>
                 <h2 className="text-xl font-bold text-slate-800">
                   {selectedRequest.employee
                     ? `${selectedRequest.employee.firstName} ${selectedRequest.employee.lastName}`
                     : 'Employee Request'}
                 </h2>
               </div>
-              <button onClick={() => setSelectedRequest(null)} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+              <button
+                onClick={() => setSelectedRequest(null)}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Employee:</span>
-                <strong className="text-slate-800">{selectedRequest.employee ? `${selectedRequest.employee.firstName} ${selectedRequest.employee.lastName}` : '—'}</strong>
+            {/* SECTION A: REQUEST INFORMATION */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📋</span> REQUEST INFORMATION
+              </h3>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Employee:</span>
+                  <strong className="text-slate-800">
+                    {selectedRequest.employee
+                      ? `${selectedRequest.employee.firstName} ${selectedRequest.employee.lastName} (#${selectedRequest.employee.employeeNumber})`
+                      : '—'}
+                  </strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Time Off Type:</span>
+                  <strong className="text-indigo-600 font-bold text-sm">
+                    {selectedRequest.timeOffType?.name || 'Leave'}
+                  </strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Start Date:</span>
+                  <strong className="text-slate-800">
+                    {new Date(selectedRequest.startDate).toLocaleDateString(undefined, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">End Date:</span>
+                  <strong className="text-slate-800">
+                    {new Date(selectedRequest.endDate).toLocaleDateString(undefined, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Duration:</span>
+                  <strong className="text-indigo-700 font-extrabold text-sm">
+                    {selectedRequest.daysRequested} {selectedRequest.timeOffType?.unit || 'DAYS'}
+                  </strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Status:</span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full font-bold text-xs ${
+                      selectedRequest.status === 'APPROVED' || selectedRequest.status === 'VALIDATED'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : selectedRequest.status === 'REFUSED'
+                        ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}
+                  >
+                    {selectedRequest.status === 'CONFIRMED' || selectedRequest.status === 'DRAFT'
+                      ? 'Pending'
+                      : selectedRequest.status}
+                  </span>
+                </div>
+                {selectedRequest.reason && (
+                  <div className="pt-1">
+                    <span className="text-slate-500 font-medium block mb-1">Reason / Remarks:</span>
+                    <p className="italic bg-white p-2.5 rounded-lg border border-slate-200 text-slate-700">
+                      "{selectedRequest.reason}"
+                    </p>
+                  </div>
+                )}
+                {selectedRequest.refusalReason && (
+                  <div className="pt-1">
+                    <span className="text-rose-600 font-bold block mb-1">Refusal Reason:</span>
+                    <p className="italic bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-rose-800 font-medium">
+                      "{selectedRequest.refusalReason}"
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Time Off Type:</span>
-                <strong className="text-indigo-600 font-bold">{selectedRequest.timeOffType?.name}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Start Date:</span>
-                <strong className="text-slate-800">{new Date(selectedRequest.startDate).toLocaleDateString()}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">End Date:</span>
-                <strong className="text-slate-800">{new Date(selectedRequest.endDate).toLocaleDateString()}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Duration:</span>
-                <strong className="text-indigo-700 text-sm font-extrabold">{selectedRequest.daysRequested} {selectedRequest.timeOffType?.unit || 'DAYS'}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Status:</span>
-                <span className={`px-2 py-0.5 rounded font-bold ${selectedRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : selectedRequest.status === 'REFUSED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
-                  {selectedRequest.status}
+            </div>
+
+            {/* SECTION B: EMPLOYEE LEAVE BALANCE OVERVIEW */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📊</span> EMPLOYEE LEAVE BALANCE
+                </h3>
+                <span className="text-[11px] text-slate-400">
+                  Live leave totals for {selectedRequest.employee?.firstName || 'Employee'}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Approver:</span>
-                <strong className="text-slate-800">{selectedRequest.approvedById || 'Pending Review'}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Allocation Used:</span>
-                <strong className="text-slate-800">{selectedRequest.timeOffType?.requiresAllocation ? 'Yes' : 'No'}</strong>
-              </div>
+
+              {loadingReqBalances ? (
+                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border">
+                  Loading employee leave balances...
+                </div>
+              ) : selectedReqBalances.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border">
+                  No leave balance records available.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <table className="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead className="bg-slate-100 text-slate-600 font-bold uppercase">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left font-semibold">Type</th>
+                        <th className="px-4 py-2.5 text-center font-semibold">Allocated</th>
+                        <th className="px-4 py-2.5 text-center font-semibold">Taken</th>
+                        <th className="px-4 py-2.5 text-center font-semibold">Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {selectedReqBalances.map((b) => {
+                        const isSelectedType =
+                          b.timeOffTypeId === selectedRequest.timeOffTypeId ||
+                          b.code === selectedRequest.timeOffType?.code;
+
+                        return (
+                          <tr
+                            key={b.timeOffTypeId}
+                            className={
+                              isSelectedType
+                                ? 'bg-indigo-50/90 font-bold border-l-4 border-indigo-600'
+                                : 'hover:bg-slate-50 transition-colors'
+                            }
+                          >
+                            <td className="px-4 py-2.5 font-bold text-slate-800 flex items-center gap-1.5">
+                              <span>{b.name}</span>
+                              {isSelectedType && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-indigo-600 text-white rounded">
+                                  Requested
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-center font-medium text-slate-700">
+                              {b.requiresAllocation ? `${b.allocated} days` : '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-center font-semibold text-amber-600">
+                              {b.taken} days
+                            </td>
+                            <td className="px-4 py-2.5 text-center font-extrabold text-emerald-600">
+                              {b.remaining} days
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* CURRENT REQUEST CONTEXT & PREVIEW */}
+              {(() => {
+                const reqTypeBalance = selectedReqBalances.find(
+                  (b) =>
+                    b.timeOffTypeId === selectedRequest.timeOffTypeId ||
+                    b.code === selectedRequest.timeOffType?.code
+                );
+
+                if (!reqTypeBalance) return null;
+
+                const currentRemaining = reqTypeBalance.remaining;
+                const requestedDays = selectedRequest.daysRequested;
+                const remainingAfterApproval = Math.max(0, currentRemaining - requestedDays);
+
+                if (selectedRequest.status === 'APPROVED' || selectedRequest.status === 'VALIDATED') {
+                  return (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center justify-between">
+                      <div>
+                        <strong>Status: Approved</strong> — {requestedDays} days deducted from {reqTypeBalance.name}.
+                      </div>
+                      <div className="font-extrabold text-emerald-700">
+                        Remaining: {currentRemaining} days
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (selectedRequest.status === 'REFUSED') {
+                  return (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-xl text-xs flex items-center justify-between">
+                      <div>
+                        <strong>Status: Refused</strong> — No balance deducted.
+                      </div>
+                      <div className="font-extrabold text-slate-700">
+                        Current Remaining: {currentRemaining} days
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="bg-indigo-50 border border-indigo-200 text-indigo-900 p-3.5 rounded-xl text-xs space-y-1.5">
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1">
+                        <span>💡</span> Approval Preview Context ({reqTypeBalance.name})
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center bg-white p-2.5 rounded-lg border border-indigo-100">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Current Remaining</span>
+                        <strong className="text-slate-800 text-sm">{currentRemaining} days</strong>
+                      </div>
+                      <div>
+                        <span className="text-indigo-400 block text-[10px] uppercase font-bold">Requested</span>
+                        <strong className="text-indigo-600 text-sm">-{requestedDays} days</strong>
+                      </div>
+                      <div>
+                        <span className="text-emerald-500 block text-[10px] uppercase font-bold">Remaining If Approved</span>
+                        <strong className="text-emerald-600 text-sm">{remainingAfterApproval} days</strong>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-indigo-700 italic">
+                      * Preview only. Balance is not deducted until HR approves this request.
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
-            {selectedRequest.reason && (
-              <div>
-                <span className="text-xs text-slate-500 font-semibold block mb-1">Reason / Remarks</span>
-                <p className="text-xs bg-slate-50 p-3 rounded-lg border border-slate-200 text-slate-700 italic">
-                  "{selectedRequest.reason}"
-                </p>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <button onClick={() => setSelectedRequest(null)} className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+              <button
+                onClick={() => setSelectedRequest(null)}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
                 Close
               </button>
-              {isHR && selectedRequest.status !== 'APPROVED' && (
+              {isHR && selectedRequest.status !== 'APPROVED' && selectedRequest.status !== 'VALIDATED' && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleApprove(selectedRequest.id)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700">
+                  <button
+                    onClick={() => handleApprove(selectedRequest.id)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                  >
                     Approve
                   </button>
-                  <button onClick={() => handleRefuse(selectedRequest.id)} className="px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700">
+                  <button
+                    onClick={() => handleRefuse(selectedRequest.id)}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                  >
                     Refuse
                   </button>
                 </div>

@@ -1,4 +1,4 @@
-import { PrismaClient, Role, StructureStatus, RuleStatus, RuleCalculationType, SalaryRuleCategory, ContractType, ContractStatus } from '@prisma/client';
+import { PrismaClient, Role, StructureStatus, RuleStatus, RuleCalculationType, SalaryRuleCategory, ContractType, ContractStatus, TimeOffStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -196,33 +196,58 @@ async function main() {
     console.log(`✓ HR Payroll Manager employee profile created.`);
   }
 
-  // Ensure Employee profile & Contract
-  let emp = await prisma.employee.findUnique({ where: { userId: employeeUser.id } });
-  if (!emp) {
-    emp = await prisma.employee.create({
-      data: {
-        userId: employeeUser.id,
-        employeeNumber: 'EMP001',
-        firstName: 'John',
-        lastName: 'Doe',
-        hireDate: new Date('2025-01-15'),
-        jobTitle: 'Software Engineer',
-        department: 'Engineering',
-      },
-    });
+  // 5. ADDITIONAL DEMO EMPLOYEES & USERS
+  const demoUsersData = [
+    { email: 'john.doe@truprm.com', empNum: 'EMP001', first: 'John', last: 'Doe', title: 'Software Engineer', dept: 'Engineering', color: '#6366f1' },
+    { email: 'aarav.mehta@truprm.com', empNum: 'EMP002', first: 'Aarav', last: 'Mehta', title: 'Senior Software Engineer', dept: 'Engineering', color: '#059669' },
+    { email: 'sara.khan@truprm.com', empNum: 'EMP003', first: 'Sara', last: 'Khan', title: 'Product Designer', dept: 'Product & UX', color: '#d97706' },
+    { email: 'john.dsouza@truprm.com', empNum: 'EMP004', first: 'John', last: 'Dsouza', title: 'QA Lead Specialist', dept: 'Quality Assurance', color: '#2563eb' },
+    { email: 'meha.patel@truprm.com', empNum: 'EMP005', first: 'Meha', last: 'Patel', title: 'HR Operations Associate', dept: 'Human Resources', color: '#7c3aed' },
+  ];
 
-    await prisma.contract.create({
-      data: {
-        employeeId: emp.id,
-        contractType: ContractType.FULL_TIME,
-        status: ContractStatus.ACTIVE,
-        startDate: new Date('2025-01-15'),
-        wageAmount: 50000,
-        salaryStructureId: structure.id,
-      },
-    });
-    console.log(`✓ Sample employee John Doe (EMP001) contract created.`);
+  const seededEmployees: Record<string, any> = {};
+
+  for (const uData of demoUsersData) {
+    let u = await prisma.user.findUnique({ where: { email: uData.email } });
+    if (!u) {
+      u = await prisma.user.create({
+        data: {
+          email: uData.email,
+          passwordHash,
+          role: Role.EMPLOYEE,
+        },
+      });
+    }
+
+    let empRecord = await prisma.employee.findUnique({ where: { userId: u.id } });
+    if (!empRecord) {
+      empRecord = await prisma.employee.create({
+        data: {
+          userId: u.id,
+          employeeNumber: uData.empNum,
+          firstName: uData.first,
+          lastName: uData.last,
+          hireDate: new Date('2025-01-15'),
+          jobTitle: uData.title,
+          department: uData.dept,
+          color: uData.color,
+        },
+      });
+
+      await prisma.contract.create({
+        data: {
+          employeeId: empRecord.id,
+          contractType: ContractType.FULL_TIME,
+          status: ContractStatus.ACTIVE,
+          startDate: new Date('2025-01-15'),
+          wageAmount: 60000,
+          salaryStructureId: structure.id,
+        },
+      });
+    }
+    seededEmployees[uData.first] = empRecord;
   }
+  console.log(`✓ Seeded ${Object.keys(seededEmployees).length} demo employees with contracts.`);
 
   // 6. Ensure Configurable Time Off Types
   const defaultTypes = [
@@ -281,22 +306,24 @@ async function main() {
     },
   ];
 
+  const seededTypes: Record<string, any> = {};
   for (const t of defaultTypes) {
-    await prisma.timeOffType.upsert({
+    const typeObj = await prisma.timeOffType.upsert({
       where: { code: t.code },
       update: t,
       create: t,
     });
+    seededTypes[t.code] = typeObj;
   }
   console.log('✓ Configurable Time Off Types seeded.');
 
   // Create sample allocations for employees
   const allEmployees = await prisma.employee.findMany();
-  const allTypes = await prisma.timeOffType.findMany({ where: { requiresAllocation: true } });
+  const allAllocTypes = await prisma.timeOffType.findMany({ where: { requiresAllocation: true } });
 
   const currentYear = new Date().getFullYear();
   for (const employee of allEmployees) {
-    for (const type of allTypes) {
+    for (const type of allAllocTypes) {
       const existingAlloc = await prisma.timeOffAllocation.findFirst({
         where: { employeeId: employee.id, timeOffTypeId: type.id, year: currentYear },
       });
@@ -316,6 +343,145 @@ async function main() {
     }
   }
   console.log('✓ Employee leave allocations initialized.');
+
+  // Seed Comp-Off credits
+  const johnDsouza = seededEmployees['John'] || allEmployees.find(e => e.firstName === 'John' && e.lastName === 'Dsouza');
+  const aaravMehta = seededEmployees['Aarav'] || allEmployees.find(e => e.firstName === 'Aarav');
+
+  if (johnDsouza) {
+    const existingComp = await prisma.compOffCredit.findFirst({ where: { employeeId: johnDsouza.id } });
+    if (!existingComp) {
+      await prisma.compOffCredit.create({
+        data: {
+          employeeId: johnDsouza.id,
+          dateEarned: new Date('2026-09-01'),
+          daysEarned: 3,
+          hoursWorked: 12,
+          reason: 'Comp-off for Sunday overtime project launch',
+          status: 'APPROVED',
+          usedDays: 0,
+          remainingDays: 3,
+        },
+      });
+    }
+  }
+
+  if (aaravMehta) {
+    const existingComp = await prisma.compOffCredit.findFirst({ where: { employeeId: aaravMehta.id } });
+    if (!existingComp) {
+      await prisma.compOffCredit.create({
+        data: {
+          employeeId: aaravMehta.id,
+          dateEarned: new Date('2026-08-15'),
+          daysEarned: 2,
+          hoursWorked: 16,
+          reason: 'Emergency server patch support',
+          status: 'APPROVED',
+          usedDays: 0,
+          remainingDays: 2,
+        },
+      });
+    }
+  }
+  console.log('✓ Comp-Off credits seeded.');
+
+  // Seed realistic Time Off Requests
+  const requestsToSeed = [
+    {
+      empName: 'Aarav',
+      typeCode: 'SICK',
+      startDate: new Date('2026-09-12'),
+      endDate: new Date('2026-09-14'),
+      daysRequested: 3,
+      status: TimeOffStatus.APPROVED,
+      reason: 'Medical rest following fever and doctor advice',
+    },
+    {
+      empName: 'Sara',
+      typeCode: 'FLEXI',
+      startDate: new Date('2026-09-18'),
+      endDate: new Date('2026-09-18'),
+      daysRequested: 1,
+      status: TimeOffStatus.CONFIRMED,
+      reason: 'Personal family milestone event',
+    },
+    {
+      empName: 'John', // John Dsouza
+      typeCode: 'COMP_OFF',
+      startDate: new Date('2026-09-27'),
+      endDate: new Date('2026-09-27'),
+      daysRequested: 1,
+      status: TimeOffStatus.CONFIRMED,
+      reason: 'Availing earned comp-off for overtime worked on launch day',
+    },
+    {
+      empName: 'Meha',
+      typeCode: 'SICK',
+      startDate: new Date('2026-09-02'),
+      endDate: new Date('2026-09-03'),
+      daysRequested: 2,
+      status: TimeOffStatus.REFUSED,
+      reason: 'Dental procedure rest',
+      refusalReason: 'High HR audit workload on target dates',
+    },
+    {
+      empName: 'Aarav',
+      typeCode: 'FLEXI',
+      startDate: new Date('2026-09-25'),
+      endDate: new Date('2026-09-25'),
+      daysRequested: 1,
+      status: TimeOffStatus.CONFIRMED,
+      reason: 'Relocation assistance and home setup',
+    },
+  ];
+
+  for (const r of requestsToSeed) {
+    const empMatch = allEmployees.find(e => e.firstName === r.empName) || Object.values(seededEmployees).find(e => e.firstName === r.empName);
+    const typeMatch = seededTypes[r.typeCode];
+
+    if (empMatch && typeMatch) {
+      const existingReq = await prisma.timeOffRequest.findFirst({
+        where: {
+          employeeId: empMatch.id,
+          timeOffTypeId: typeMatch.id,
+          startDate: r.startDate,
+        },
+      });
+
+      if (!existingReq) {
+        const createdReq = await prisma.timeOffRequest.create({
+          data: {
+            employeeId: empMatch.id,
+            timeOffTypeId: typeMatch.id,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            daysRequested: r.daysRequested,
+            status: r.status,
+            reason: r.reason,
+            refusalReason: r.refusalReason || null,
+            approvedAt: r.status === TimeOffStatus.APPROVED ? new Date() : null,
+          },
+        });
+
+        // If approved, update allocation accordingly
+        if (r.status === TimeOffStatus.APPROVED && typeMatch.requiresAllocation) {
+          const alloc = await prisma.timeOffAllocation.findFirst({
+            where: { employeeId: empMatch.id, timeOffTypeId: typeMatch.id, year: currentYear },
+          });
+          if (alloc) {
+            await prisma.timeOffAllocation.update({
+              where: { id: alloc.id },
+              data: {
+                daysUsed: alloc.daysUsed + r.daysRequested,
+                remaining: Math.max(0, alloc.daysAllocated - (alloc.daysUsed + r.daysRequested)),
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+  console.log('✓ Realistic Time Off Requests seeded.');
 }
 
 main()
