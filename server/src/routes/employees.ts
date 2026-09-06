@@ -222,7 +222,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /api/employees
-router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       userId,
@@ -237,38 +237,64 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
       color
     } = req.body;
 
-    if (!employeeNumber || !firstName || !lastName || !hireDate || !jobTitle) {
-      res.status(400).json({ message: 'Missing required employee fields (Employee Number, First Name, Last Name, Hire Date, Job Title).' });
+    if (!firstName || !lastName || !jobTitle) {
+      res.status(400).json({ message: 'First Name, Last Name, and Job Title are required.' });
       return;
     }
 
+    let finalEmpNumber = employeeNumber ? String(employeeNumber).trim() : '';
+    if (!finalEmpNumber) {
+      finalEmpNumber = `EMP-${Date.now().toString().slice(-6)}`;
+    }
+
     // Check unique employee number
-    const existingEmpNum = await prisma.employee.findUnique({ where: { employeeNumber } });
+    const existingEmpNum = await prisma.employee.findUnique({ where: { employeeNumber: finalEmpNumber } });
     if (existingEmpNum) {
-      res.status(400).json({ message: `Employee Number #${employeeNumber} already exists. Please use a unique Employee Number.` });
+      // If user provided a specific number that exists, alert them or generate a unique suffix
+      if (employeeNumber) {
+        res.status(400).json({ message: `Employee Number "${finalEmpNumber}" already exists. Please use a unique number.` });
+        return;
+      }
+      finalEmpNumber = `${finalEmpNumber}-${Math.floor(100 + Math.random() * 900)}`;
+    }
+
+    const parsedHireDate = hireDate ? new Date(hireDate) : new Date();
+    if (isNaN(parsedHireDate.getTime())) {
+      res.status(400).json({ message: 'Please provide a valid Hire Date.' });
       return;
     }
 
     const data: any = {
-      employeeNumber,
-      firstName,
-      lastName,
-      hireDate: new Date(hireDate),
-      jobTitle,
-      department,
+      employeeNumber: finalEmpNumber,
+      firstName: String(firstName).trim(),
+      lastName: String(lastName).trim(),
+      hireDate: parsedHireDate,
+      jobTitle: String(jobTitle).trim(),
+      department: department ? String(department).trim() : null,
       color: color || '#6366f1'
     };
 
-    if (dateOfBirth) data.dateOfBirth = new Date(dateOfBirth);
-    if (managerId) data.manager = { connect: { id: managerId } };
+    if (dateOfBirth && String(dateOfBirth).trim() !== '') {
+      const parsedDob = new Date(dateOfBirth);
+      if (!isNaN(parsedDob.getTime())) {
+        data.dateOfBirth = parsedDob;
+      }
+    }
 
-    if (userId) {
-      const existingUserLink = await prisma.employee.findUnique({ where: { userId } });
+    if (managerId && String(managerId).trim() !== '') {
+      const mgr = await prisma.employee.findUnique({ where: { id: String(managerId) } });
+      if (mgr) {
+        data.manager = { connect: { id: mgr.id } };
+      }
+    }
+
+    if (userId && String(userId).trim() !== '') {
+      const existingUserLink = await prisma.employee.findUnique({ where: { userId: String(userId) } });
       if (existingUserLink) {
         res.status(400).json({ message: 'The selected user account is already linked to another employee.' });
         return;
       }
-      data.user = { connect: { id: userId } };
+      data.user = { connect: { id: String(userId) } };
     } else {
       // Auto-create linked user account if none selected
       const sanitizedFn = (firstName || 'emp').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -300,7 +326,7 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
 });
 
 // PUT /api/employees/:id
-router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.put('/:id', authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     const {
@@ -317,23 +343,59 @@ router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: R
     } = req.body;
 
     const data: any = {};
-    if (employeeNumber) data.employeeNumber = employeeNumber;
-    if (firstName) data.firstName = firstName;
-    if (lastName) data.lastName = lastName;
-    if (jobTitle) data.jobTitle = jobTitle;
-    if (department !== undefined) data.department = department;
+    if (employeeNumber) {
+      const cleanEmpNum = String(employeeNumber).trim();
+      const existing = await prisma.employee.findFirst({
+        where: { employeeNumber: cleanEmpNum, id: { not: id } }
+      });
+      if (existing) {
+        res.status(400).json({ message: `Employee Number "${cleanEmpNum}" already belongs to another employee.` });
+        return;
+      }
+      data.employeeNumber = cleanEmpNum;
+    }
+
+    if (firstName) data.firstName = String(firstName).trim();
+    if (lastName) data.lastName = String(lastName).trim();
+    if (jobTitle) data.jobTitle = String(jobTitle).trim();
+    if (department !== undefined) data.department = department ? String(department).trim() : null;
     if (color !== undefined) data.color = color;
-    if (hireDate) data.hireDate = new Date(hireDate);
-    if (dateOfBirth) data.dateOfBirth = new Date(dateOfBirth);
+    
+    if (hireDate) {
+      const parsedHireDate = new Date(hireDate);
+      if (!isNaN(parsedHireDate.getTime())) data.hireDate = parsedHireDate;
+    }
+
+    if (dateOfBirth !== undefined) {
+      if (dateOfBirth && String(dateOfBirth).trim() !== '') {
+        const parsedDob = new Date(dateOfBirth);
+        if (!isNaN(parsedDob.getTime())) data.dateOfBirth = parsedDob;
+      } else {
+        data.dateOfBirth = null;
+      }
+    }
     
     if (userId !== undefined) {
-      if (!userId) data.user = { disconnect: true };
-      else data.user = { connect: { id: userId } };
+      if (!userId || String(userId).trim() === '') {
+        data.user = { disconnect: true };
+      } else {
+        const existingLink = await prisma.employee.findFirst({
+          where: { userId: String(userId), id: { not: id } }
+        });
+        if (existingLink) {
+          res.status(400).json({ message: 'The selected user account is already linked to another employee.' });
+          return;
+        }
+        data.user = { connect: { id: String(userId) } };
+      }
     }
 
     if (managerId !== undefined) {
-      if (!managerId) data.manager = { disconnect: true };
-      else data.manager = { connect: { id: managerId } };
+      if (!managerId || String(managerId).trim() === '') {
+        data.manager = { disconnect: true };
+      } else {
+        data.manager = { connect: { id: String(managerId) } };
+      }
     }
 
     const employee = await prisma.employee.update({

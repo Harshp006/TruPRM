@@ -49,7 +49,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /api/contracts
-router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       employeeId,
@@ -121,7 +121,7 @@ router.post('/', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Res
 });
 
 // PUT /api/contracts/:id
-router.put('/:id', authorize('HR_MANAGER', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
+router.put('/:id', authorize('HR_MANAGER', 'ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     const {

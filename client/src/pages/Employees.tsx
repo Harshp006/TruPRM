@@ -59,8 +59,12 @@ function EmployeeForm({
   onCancel: () => void;
 }) {
   const [form, setForm] = useState<Partial<Employee>>(initial ?? {
-    employeeNumber: '', firstName: '', lastName: '', jobTitle: '',
-    department: '', hireDate: new Date().toISOString().slice(0, 10),
+    employeeNumber: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+    firstName: '',
+    lastName: '',
+    jobTitle: '',
+    department: '',
+    hireDate: new Date().toISOString().slice(0, 10),
     color: '#6366f1',
   });
   const [error, setError] = useState('');
@@ -68,14 +72,25 @@ function EmployeeForm({
 
   const set = (key: keyof Employee, val: any) => setForm(f => ({ ...f, [key]: val }));
 
+  const availableUsers = useMemo(() => {
+    const linkedUserIds = new Set(
+      employees.map(e => e.userId).filter(Boolean)
+    );
+    return users.filter(u => !linkedUserIds.has(u.id) || u.id === (initial?.userId ?? form.userId));
+  }, [users, employees, initial?.userId, form.userId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.firstName?.trim() || !form.lastName?.trim() || !form.jobTitle?.trim()) {
+      setError('First Name, Last Name, and Job Title are required.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       await onSave(form);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      setError(err.response?.data?.message || err.message || 'Failed to save employee record');
     } finally {
       setSaving(false);
     }
@@ -85,6 +100,12 @@ function EmployeeForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">First Name *</label>
@@ -99,7 +120,7 @@ function EmployeeForm({
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Employee # *</label>
           <input required value={form.employeeNumber || ''} onChange={e => set('employeeNumber', e.target.value)}
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono" />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Job Title *</label>
@@ -135,19 +156,18 @@ function EmployeeForm({
           <label className="block text-sm font-medium text-slate-700 mb-1">Linked User Account</label>
           <select value={form.userId || ''} onChange={e => set('userId', e.target.value || null)}
             className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
-            <option value="">— None —</option>
-            {users.map(u => (
+            <option value="">— Auto-create Employee user account —</option>
+            {availableUsers.map(u => (
               <option key={u.id} value={u.id}>{u.email} ({u.role})</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Color</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Color Tag</label>
           <input type="color" value={form.color || '#6366f1'} onChange={e => set('color', e.target.value)}
             className="h-10 w-full rounded-xl border border-slate-300 cursor-pointer" />
         </div>
       </div>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={saving}
           className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 font-bold text-sm disabled:opacity-50 transition">
