@@ -49,7 +49,7 @@ export interface TimeOffRequest {
   startDate: string;
   endDate: string;
   daysRequested: number;
-  status: 'DRAFT' | 'CONFIRMED' | 'APPROVED' | 'VALIDATED' | 'REFUSED';
+  status: 'DRAFT' | 'CONFIRMED' | 'APPROVED' | 'VALIDATED' | 'REFUSED' | 'CANCELLED';
   reason?: string | null;
   refusalReason?: string | null;
   approvedById?: string | null;
@@ -203,6 +203,9 @@ export const approveTimeOffRequest = (id: string) =>
 
 export const refuseTimeOffRequest = (id: string, refusalReason?: string) =>
   api.post<{ message: string; request: TimeOffRequest }>(`/api/timeoff/requests/${id}/refuse`, { refusalReason }).then((r) => r.data);
+
+export const cancelTimeOffRequest = (id: string) =>
+  api.post<{ message: string; request: TimeOffRequest }>(`/api/timeoff/requests/${id}/cancel`).then((r) => r.data);
 
 export const fetchCompOffCredits = (params?: { employeeId?: string }) =>
   api.get<CompOffCreditRecord[]>('/api/timeoff/compoff', { params }).then((r) => r.data);

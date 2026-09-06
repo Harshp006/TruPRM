@@ -351,6 +351,7 @@ enum TimeOffStatus {
   APPROVED
   VALIDATED
   REFUSED
+  CANCELLED
 }
 
 enum StructureStatus {

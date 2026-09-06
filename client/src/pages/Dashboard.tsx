@@ -204,26 +204,26 @@ export default function Dashboard() {
       {/* -------------------------------------------------------------------- */}
       {/* PAYROLL SYSTEM CONFIGURATION & READINESS AUDIT                       */}
       {/* -------------------------------------------------------------------- */}
-      <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-slate-900 p-6 rounded-2xl shadow-xs border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">System Configuration Health</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">System Configuration Health</span>
           </div>
-          <h2 className="text-xl font-extrabold text-white">Payroll Setup & Readiness Verification</h2>
-          <p className="text-xs text-slate-300 max-w-2xl">
+          <h2 className="text-xl font-extrabold text-slate-900">Payroll Setup & Readiness Verification</h2>
+          <p className="text-xs text-slate-500 max-w-2xl font-normal">
             Calculations depend on active Salary Structures and Salary Rules. Verify rule formulas before User execution.
           </p>
         </div>
-        <div className="flex items-center gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700/80 text-xs shrink-0">
+        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs shrink-0">
           <div>
-            <div className="text-slate-400 font-medium">Configured Structures:</div>
-            <div className="text-lg font-bold text-white">{data?.modelsSummary?.contractsCount ? 'Active' : 'Ready'}</div>
+            <div className="text-slate-500 font-semibold">Configured Structures:</div>
+            <div className="text-lg font-bold text-slate-900">{data?.modelsSummary?.contractsCount ? 'Active' : 'Ready'}</div>
           </div>
-          <div className="h-8 w-px bg-slate-700"></div>
+          <div className="h-8 w-px bg-slate-200"></div>
           <div>
-            <div className="text-slate-400 font-medium">Pre-Check Exceptions:</div>
-            <div className="text-lg font-bold text-amber-400">{data?.currentAlerts?.length || 0} Alerts</div>
+            <div className="text-slate-500 font-semibold">Pre-Check Exceptions:</div>
+            <div className="text-lg font-bold text-amber-600">{data?.currentAlerts?.length || 0} Alerts</div>
           </div>
         </div>
       </div>
@@ -249,17 +249,17 @@ export default function Dashboard() {
               onClick={handleResetFilters}
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition shadow-2xs"
             >
-              <span>↺</span> Reset Filters
+              Reset Filters
             </button>
           )}
         </div>
 
-        {/* 4-Column Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-7 text-sm">
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* 1. PERIOD */}
           <div className="space-y-2.5">
             <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
-              Period
+              Time Period
             </label>
             <div className="relative">
               <select
@@ -271,15 +271,12 @@ export default function Dashboard() {
                     : 'bg-white border-slate-300/90 text-slate-900 hover:border-indigo-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
                 }`}
               >
-                <option value="ALL">All Periods</option>
-                <option value="CURRENT_MONTH">Current Month</option>
-                <option value="PREVIOUS_MONTH">Previous Month</option>
-                <option value="LAST_3_MONTHS">Last 3 Months</option>
-                <option value="LAST_6_MONTHS">Last 6 Months</option>
-                <option value="CUSTOM">Custom Period...</option>
-                {data?.filterOptions?.periods?.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
+                <option value="ALL">All Time</option>
+                <option value="THIS_MONTH">This Month</option>
+                <option value="LAST_MONTH">Last Month</option>
+                <option value="QUARTER">This Quarter</option>
+                <option value="YEAR">This Year</option>
+                <option value="CUSTOM">Custom Range</option>
               </select>
               <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 font-bold text-xs">
                 ▼
@@ -393,67 +390,90 @@ export default function Dashboard() {
       </div>
 
       {/* -------------------------------------------------------------------- */}
-      {/* 3. 5 SUMMARY CARDS (1 Row on Desktop, Equal Height & Hover States)   */}
+      {/* 3. 6 TOP HR & PAYROLL KPI CARDS                                      */}
       {/* -------------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 w-full min-w-0">
-        {/* Card 1: Total Net Salary Paid */}
-        <div className="bg-white p-7 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[175px] space-y-4 min-w-0">
-          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-            Total Net Salary Paid
-          </span>
-          <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight truncate">
-            {loading ? '...' : `₹${(data?.summaryCards?.totalNetSalaryPaid || 0).toLocaleString()}`}
-          </div>
-          <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Filtered Database Payslips
-          </span>
-        </div>
-
-        {/* Card 2: Payslips Generated */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-5 w-full min-w-0">
+        {/* Card 1: Total Employees */}
         <div
-          onClick={() => navigate('/payruns')}
-          className="bg-white p-7 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[175px] space-y-4 min-w-0 cursor-pointer group"
+          onClick={() => navigate('/employees')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[160px] space-y-3 min-w-0 cursor-pointer group"
         >
-          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest group-hover:text-blue-800 transition">
-            Payslips Generated
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition">
+            Total Employees
           </span>
-          <div className="text-3xl sm:text-4xl font-black text-blue-800 tracking-tight truncate">
-            {loading ? '...' : (data?.summaryCards?.payslipsGenerated || 0)}
+          <div className="text-3xl font-black text-slate-900 tracking-tight truncate">
+            {loading ? '...' : (data?.modelsSummary?.employeesCount || 0)}
           </div>
-          <span className="text-xs font-semibold text-slate-500 group-hover:underline">View Pay Runs →</span>
+          <span className="text-xs font-semibold text-slate-500 group-hover:underline">View Employees →</span>
         </div>
 
-        {/* Card 3: Avg Salary / Employee */}
-        <div className="bg-white p-7 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[175px] space-y-4 min-w-0">
-          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-            Avg Salary / Employee
+        {/* Card 2: Active Contracts */}
+        <div
+          onClick={() => navigate('/contracts')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[160px] space-y-3 min-w-0 cursor-pointer group"
+        >
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest group-hover:text-emerald-600 transition">
+            Active Contracts
           </span>
-          <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight truncate">
-            {loading ? '...' : `₹${(data?.summaryCards?.avgSalaryPerEmployee || 0).toLocaleString()}`}
+          <div className="text-3xl font-black text-emerald-600 tracking-tight truncate">
+            {loading ? '...' : (data?.modelsSummary?.contractsCount || 0)}
           </div>
-          <span className="text-xs font-semibold text-slate-500">Per Headcount Ratio</span>
+          <span className="text-xs font-semibold text-slate-500 group-hover:underline">View Contracts →</span>
         </div>
 
-        {/* Card 4: Approved Time Off Days */}
-        <div className="bg-white p-7 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[175px] space-y-4 min-w-0">
-          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-            Approved Time Off Days
-          </span>
-          <div className="text-3xl sm:text-4xl font-black text-blue-800 tracking-tight truncate">
-            {loading ? '...' : `${data?.summaryCards?.approvedTimeOffDays || 0} Days`}
-          </div>
-          <span className="text-xs font-bold text-blue-800">Approved Leave Requests</span>
-        </div>
-
-        {/* Card 5: Attendance Health */}
-        <div className="bg-white p-7 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[175px] space-y-4 min-w-0">
-          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
+        {/* Card 3: Attendance Health */}
+        <div
+          onClick={() => navigate('/attendance')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[160px] space-y-3 min-w-0 cursor-pointer group"
+        >
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest group-hover:text-indigo-600 transition">
             Attendance Health
           </span>
-          <div className="text-3xl sm:text-4xl font-black text-emerald-600 tracking-tight truncate">
+          <div className="text-3xl font-black text-indigo-600 tracking-tight truncate">
             {loading ? '...' : `${data?.summaryCards?.attendanceHealthPct || 100}%`}
           </div>
-          <span className="text-xs font-bold text-emerald-600">Presence Ratio</span>
+          <span className="text-xs font-bold text-indigo-600">Presence Ratio</span>
+        </div>
+
+        {/* Card 4: Approved Leave */}
+        <div
+          onClick={() => navigate('/time-off')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[160px] space-y-3 min-w-0 cursor-pointer group"
+        >
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest group-hover:text-amber-600 transition">
+            Approved Leave
+          </span>
+          <div className="text-3xl font-black text-amber-600 tracking-tight truncate">
+            {loading ? '...' : `${data?.summaryCards?.approvedTimeOffDays || 0} Days`}
+          </div>
+          <span className="text-xs font-bold text-amber-600">Time Off Requests</span>
+        </div>
+
+        {/* Card 5: Total Net Salary */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[160px] space-y-3 min-w-0">
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
+            Total Net Salary
+          </span>
+          <div className="text-2xl font-black text-slate-900 tracking-tight truncate">
+            {loading ? '...' : `₹${(data?.summaryCards?.totalNetSalaryPaid || 0).toLocaleString()}`}
+          </div>
+          <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Filtered Payslips
+          </span>
+        </div>
+
+        {/* Card 6: Payroll Exceptions */}
+        <div
+          onClick={() => navigate('/payruns')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[160px] space-y-3 min-w-0 cursor-pointer group"
+        >
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest group-hover:text-rose-600 transition">
+            Payroll Exceptions
+          </span>
+          <div className="text-3xl font-black text-rose-600 tracking-tight truncate">
+            {loading ? '...' : (data?.currentAlerts?.length || 0)}
+          </div>
+          <span className="text-xs font-semibold text-slate-500 group-hover:underline">Audit Alerts →</span>
         </div>
       </div>
 

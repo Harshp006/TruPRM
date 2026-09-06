@@ -673,6 +673,70 @@ router.post(
     }
   }
 );
+// POST /api/timeoff/requests/:id/cancel - Employee cancels own pending leave request
+router.post('/requests/:id/cancel', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const requestId = String(req.params.id);
+    const authEmpId = await getAuthEmployeeId(req);
+
+    if (!authEmpId) {
+      res.status(403).json({ message: 'Employee record required to cancel request' });
+      return;
+    }
+
+    const existingReq = await prisma.timeOffRequest.findUnique({
+      where: { id: requestId },
+      include: { timeOffType: true },
+    });
+
+    if (!existingReq) {
+      res.status(404).json({ message: 'Time off request not found' });
+      return;
+    }
+
+    // 1. Verify ownership: must belong to the logged in employee
+    if (existingReq.employeeId !== authEmpId) {
+      res.status(403).json({ message: 'Forbidden: You can only cancel your own leave requests' });
+      return;
+    }
+
+    // 2. Status verification: Must NOT be APPROVED, CANCELLED, or REFUSED
+    if (existingReq.status === 'APPROVED') {
+      res.status(400).json({ message: 'Approved leave requests cannot be cancelled' });
+      return;
+    }
+
+    if (existingReq.status === 'CANCELLED') {
+      res.status(400).json({ message: 'Request is already cancelled' });
+      return;
+    }
+
+    if (existingReq.status === 'REFUSED') {
+      res.status(400).json({ message: 'Refused requests cannot be cancelled' });
+      return;
+    }
+
+    // Update status to CANCELLED without consuming leave allocation
+    const cancelledReq = await prisma.timeOffRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'CANCELLED',
+      },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        timeOffType: true,
+      },
+    });
+
+    res.json({
+      message: 'Leave request cancelled successfully',
+      request: cancelledReq,
+    });
+  } catch (err: any) {
+    console.error('Cancel timeoff request error:', err);
+    res.status(500).json({ message: err.message || 'Failed to cancel leave request' });
+  }
+});
 
 // ==================== COMP-OFF CREDITS ====================
 
