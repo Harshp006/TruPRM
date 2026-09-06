@@ -688,10 +688,10 @@ router.put(
   }
 );
 
-// DELETE /api/payruns/:id
+// DELETE /api/payruns/:id (Manager/Admin Only Destructive Action)
 router.delete(
   '/:id',
-  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  authorize('ADMIN', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;

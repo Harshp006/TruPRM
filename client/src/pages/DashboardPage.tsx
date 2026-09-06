@@ -57,9 +57,7 @@ export default function DashboardPage() {
             Welcome back, {user?.email}
           </h1>
           <p className="text-slate-500 text-sm mt-1 max-w-xl">
-            {user?.role === 'HR_PAYROLL_USER'
-              ? 'Payroll Operations & Compliance Portal — Payrun processing, attendance tracking, and payslip generation.'
-              : 'Enterprise HR & Payroll Management Portal — Full administrative authority over payroll workflows.'}
+            Enterprise HR & Payroll Portal — Real-time metrics for payroll operations, attendance tracking, and employee compensation.
           </p>
         </div>
         <div className="flex items-center gap-3 relative z-10">

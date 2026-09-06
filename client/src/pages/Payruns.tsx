@@ -120,6 +120,7 @@ const Payruns: React.FC = () => {
 
   // Role permissions
   const isHRUser = user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN' || user?.role === 'HR_PAYROLL_USER' || user?.role === 'ADMIN';
+  const isHRManager = user?.role === 'HR_PAYROLL_MANAGER' || user?.role === 'HR_PAYROLL_ADMIN' || user?.role === 'ADMIN';
   const isHRManagerViewOnly = user?.role === 'HR_MANAGER';
 
   const fetchPayruns = async () => {
@@ -645,7 +646,7 @@ const Payruns: React.FC = () => {
                     >
                       <span>{isHRUser ? 'Manage & Compute' : 'View Pay Run Details'}</span>
                     </button>
-                    {isHRUser && pr.state === 'DRAFT' && (
+                    {isHRManager && pr.state === 'DRAFT' && (
                       <button
                         onClick={() => handleDelete(pr.id)}
                         className="inline-flex items-center p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold transition"
