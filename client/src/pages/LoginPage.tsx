@@ -32,7 +32,13 @@ export default function LoginPage() {
       if (loggedInUser.mustChangePassword) {
         navigate('/change-password');
       } else {
-        navigate('/dashboard');
+        if (loggedInUser.role === 'EMPLOYEE') {
+          navigate('/payslips');
+        } else if (loggedInUser.role === 'HR_PAYROLL_USER') {
+          navigate('/payroll-home');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err: any) {
       setError('Invalid credentials');
