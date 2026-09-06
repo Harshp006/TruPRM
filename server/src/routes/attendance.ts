@@ -487,10 +487,41 @@ router.post(
         workedHours = Math.round((Math.max(0, diff) / (1000 * 60 * 60)) * 100) / 100;
       }
 
+      const targetDate = new Date(date);
+      targetDate.setHours(0, 0, 0, 0);
+
+      const existingRecord = await prisma.attendance.findFirst({
+        where: {
+          employeeId,
+          date: targetDate,
+        },
+      });
+
+      if (existingRecord) {
+        const updated = await prisma.attendance.update({
+          where: { id: existingRecord.id },
+          data: {
+            checkIn: cIn,
+            checkOut: cOut,
+            workedHours,
+            overtimeHours: overtimeHours != null ? Number(overtimeHours) : Math.max(0, (workedHours || 0) - 8),
+            status: status || existingRecord.status,
+            notes: notes !== undefined ? notes : existingRecord.notes,
+          },
+          include: {
+            employee: {
+              select: { id: true, firstName: true, lastName: true, employeeNumber: true, department: true, color: true },
+            },
+          },
+        });
+        res.status(200).json(updated);
+        return;
+      }
+
       const attendance = await prisma.attendance.create({
         data: {
           employeeId,
-          date: new Date(date),
+          date: targetDate,
           checkIn: cIn,
           checkOut: cOut,
           workedHours,

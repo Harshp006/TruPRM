@@ -37,6 +37,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 app.use('/auth', authRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/employees', employeesRouter);
 app.use('/api/working-schedules', workingSchedulesRouter);
