@@ -6,10 +6,8 @@ import {
   fetchTimeOffAllocations,
   fetchTimeOffTypes,
   fetchLeaveBalances,
-  fetchCompOffCredits,
   fetchTimeOffRequestDetail,
   fetchTimeOffAllocationDetail,
-  fetchTimeOffTypeDetail,
   createTimeOffRequest,
   approveTimeOffRequest,
   refuseTimeOffRequest,
@@ -21,12 +19,11 @@ import {
   type TimeOffAllocation,
   type TimeOffType,
   type LeaveBalanceItem,
-  type CompOffCreditRecord,
 } from '../api/timeoff';
 import { fetchEmployees, fetchEmployee, type Employee } from '../api/hr';
 
 interface TimeOffPageProps {
-  initialTab?: 'requests' | 'allocations' | 'types';
+  initialTab?: 'requests' | 'allocations';
 }
 
 export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
@@ -34,12 +31,10 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
     employeeId: paramEmployeeId,
     requestId: paramRequestId,
     allocationId: paramAllocationId,
-    typeId: paramTypeId,
   } = useParams<{
     employeeId?: string;
     requestId?: string;
     allocationId?: string;
-    typeId?: string;
   }>();
 
   const [searchParams] = useSearchParams();
@@ -49,9 +44,9 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   const { user } = useAuth();
   const isHR = user?.role && user.role !== 'EMPLOYEE';
 
-  // Active Tab state (only Requests, Allocations, and Time Off Types)
-  const defaultTab = initialTab || (paramRequestId ? 'requests' : paramAllocationId ? 'allocations' : paramTypeId ? 'types' : 'requests');
-  const [activeTab, setActiveTab] = useState<'requests' | 'allocations' | 'types'>(defaultTab);
+  // Active Tab state (only Requests and Allocations for HR)
+  const defaultTab = initialTab || (paramAllocationId ? 'allocations' : 'requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'allocations'>(defaultTab);
 
   useEffect(() => {
     if (initialTab) {
@@ -60,10 +55,8 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
       setActiveTab('requests');
     } else if (paramAllocationId) {
       setActiveTab('allocations');
-    } else if (paramTypeId) {
-      setActiveTab('types');
     }
-  }, [initialTab, paramRequestId, paramAllocationId, paramTypeId]);
+  }, [initialTab, paramRequestId, paramAllocationId]);
 
   // Data states
   const [targetEmployee, setTargetEmployee] = useState<Employee | null>(null);
@@ -71,7 +64,6 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [allocations, setAllocations] = useState<TimeOffAllocation[]>([]);
   const [types, setTypes] = useState<TimeOffType[]>([]);
-  const [compOffCredits, setCompOffCredits] = useState<CompOffCreditRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -132,6 +124,19 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
     expiryDays: 90,
   });
 
+  // Auto-calculate days requested from start and end dates
+  useEffect(() => {
+    if (reqForm.startDate && reqForm.endDate) {
+      const start = new Date(reqForm.startDate);
+      const end = new Date(reqForm.endDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        setReqForm((prev) => ({ ...prev, daysRequested: diffDays }));
+      }
+    }
+  }, [reqForm.startDate, reqForm.endDate]);
+
   // Load Target Employee Info if in single employee view
   useEffect(() => {
     if (activeEmployeeId) {
@@ -147,12 +152,11 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [reqs, allocs, typs, emps, compOffs, balanceRes] = await Promise.all([
+      const [reqs, allocs, typs, emps, balanceRes] = await Promise.all([
         fetchTimeOffRequests({ employeeId: activeEmployeeId, search }),
         fetchTimeOffAllocations({ employeeId: activeEmployeeId }),
         fetchTimeOffTypes(),
         isHR ? fetchEmployees() : Promise.resolve([]),
-        fetchCompOffCredits({ employeeId: activeEmployeeId }),
         fetchLeaveBalances({ employeeId: activeEmployeeId }),
       ]);
 
@@ -160,7 +164,6 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
       setAllocations(allocs);
       setTypes(typs);
       setEmployees(emps);
-      setCompOffCredits(compOffs);
 
       if (balanceRes && 'balances' in balanceRes) {
         setMyBalances(balanceRes.balances);
@@ -180,12 +183,6 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
         if (found) setSelectedAllocation(found);
         else fetchTimeOffAllocationDetail(paramAllocationId).then(setSelectedAllocation).catch(console.error);
       }
-
-      if (paramTypeId) {
-        const found = typs.find((t) => t.id === paramTypeId);
-        if (found) setSelectedType(found);
-        else fetchTimeOffTypeDetail(paramTypeId).then(setSelectedType).catch(console.error);
-      }
     } catch (err) {
       console.error('Error loading time off data:', err);
     } finally {
@@ -195,7 +192,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
 
   useEffect(() => {
     loadAll();
-  }, [search, activeEmployeeId, paramRequestId, paramAllocationId, paramTypeId]);
+  }, [search, activeEmployeeId, paramRequestId, paramAllocationId]);
 
   // Form Handlers
   const handleApprove = async (id: string) => {
@@ -333,25 +330,6 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
     setShowReqModal(true);
   };
 
-  const openTypeModalForEdit = (t: TimeOffType) => {
-    setEditingType(t);
-    setTypeForm({
-      name: t.name,
-      code: t.code,
-      description: t.description || '',
-      unit: t.unit || 'DAYS',
-      isPaid: t.isPaid,
-      requiresAllocation: t.requiresAllocation,
-      allocationAmount: t.allocationAmount || 10,
-      requiresApproval: t.requiresApproval,
-      isEarnedThroughWork: t.isEarnedThroughWork || false,
-      isSandwichLeave: t.isSandwichLeave || false,
-      carryForwardDays: t.carryForwardDays || 0,
-      expiryDays: t.expiryDays ? String(t.expiryDays) : '',
-    });
-    setShowTypeModal(true);
-  };
-
   const selectedTypeForReq = types.find((t) => t.id === reqForm.timeOffTypeId);
 
   return (
@@ -433,27 +411,28 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs Bar (Requests, Allocations, Time Off Types) */}
-      <div className="flex border-b border-slate-200 gap-2 overflow-x-auto bg-white px-4 py-2.5 rounded-xl border">
-        {[
-          { id: 'requests' as const, label: `Time Off Requests (${requests.length})`, icon: '📋' },
-          { id: 'allocations' as const, label: `Allocations (${allocations.length})`, icon: '📊' },
-          { id: 'types' as const, label: `Time Off Types (${types.length})`, icon: '⚙️' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`pb-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Sub-Navigation Tabs Bar (Requests & Allocations for HR) */}
+      {isHR && (
+        <div className="flex border-b border-slate-200 gap-2 overflow-x-auto bg-white px-4 py-2.5 rounded-xl border">
+          {[
+            { id: 'requests' as const, label: `Time Off Requests (${requests.length})`, icon: '📋' },
+            { id: 'allocations' as const, label: `Allocations (${allocations.length})`, icon: '📊' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`pb-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
@@ -465,135 +444,70 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
           {/* ───────────────────────────────────────────────────────────────────────────── */}
           {/* SECTION 1: SINGLE EMPLOYEE / MY LEAVE BALANCES CARD                           */}
           {/* ───────────────────────────────────────────────────────────────────────────── */}
+          {/* ───────────────────────────────────────────────────────────────────────────── */}
+          {/* SECTION 1: MY TIME OFF BALANCE (EMPLOYEE PORTAL VIEW)                          */}
+          {/* ───────────────────────────────────────────────────────────────────────────── */}
           {(myBalances.length > 0 || activeEmployeeId || !isHR) && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-800">Time Off Balance Summary</h2>
-                    <p className="text-xs text-slate-500">Live available leave balances, allocations, and pending requests.</p>
-                  </div>
-                  <span className="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">
-                    Year {new Date().getFullYear()}
-                  </span>
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-slate-800 tracking-wide uppercase">MY TIME OFF BALANCE</h2>
+                  <p className="text-xs text-slate-500">Live available leave balances and allocations</p>
                 </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                      <tr>
-                        <th className="px-6 py-3.5 text-left font-semibold">Leave Type</th>
-                        <th className="px-6 py-3.5 text-center font-semibold">Allocated</th>
-                        <th className="px-6 py-3.5 text-center font-semibold">Taken</th>
-                        <th className="px-6 py-3.5 text-center font-semibold">Pending</th>
-                        <th className="px-6 py-3.5 text-center font-semibold">Left (Remaining)</th>
-                        <th className="px-6 py-3.5 text-right font-semibold">Rules / Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {myBalances.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
-                            No leave balance records calculated.
-                          </td>
-                        </tr>
-                      ) : (
-                        myBalances.map((b) => (
-                          <tr key={b.timeOffTypeId} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="font-bold text-slate-800">{b.name}</div>
-                              <div className="text-xs text-slate-400">Code: {b.code} • Unit: {b.unit}</div>
-                            </td>
-                            <td className="px-6 py-4 text-center font-semibold text-slate-700">{b.allocated}</td>
-                            <td className="px-6 py-4 text-center font-semibold text-amber-600">{b.taken}</td>
-                            <td className="px-6 py-4 text-center font-semibold text-blue-600">{b.pending}</td>
-                            <td className="px-6 py-4 text-center font-extrabold text-base">
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                  b.remaining > 3
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    : b.remaining > 0
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {b.remaining} {b.unit}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex flex-col items-end gap-1">
-                                {b.isSandwichLeave && (
-                                  <span className="text-[10px] uppercase tracking-wider font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
-                                    🥪 Sandwich Rule
-                                  </span>
-                                )}
-                                {b.isEarnedThroughWork && (
-                                  <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                                    ⭐️ Overtime Credit
-                                  </span>
-                                )}
-                                {b.isPaid && (
-                                  <span className="text-[10px] uppercase tracking-wider font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                                    💵 Paid Leave
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <button
+                  onClick={openNewRequestModal}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
+                >
+                  <span>+</span>
+                  <span>New Request</span>
+                </button>
               </div>
 
-              {/* Employee Comp-Off Credits Log */}
-              {compOffCredits.length > 0 && (
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                    <span>⭐ Earned Comp-Off Credits</span>
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200 text-sm">
-                      <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                        <tr>
-                          <th className="px-6 py-3 text-left font-semibold">Date Earned</th>
-                          <th className="px-6 py-3 text-left font-semibold">Reason / Source</th>
-                          <th className="px-6 py-3 text-left font-semibold">Extra Hours</th>
-                          <th className="px-6 py-3 text-left font-semibold">Earned</th>
-                          <th className="px-6 py-3 text-left font-semibold">Used</th>
-                          <th className="px-6 py-3 text-left font-semibold">Remaining</th>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50 text-slate-600 text-xs font-bold uppercase">
+                    <tr>
+                      <th className="px-6 py-3.5 text-left font-semibold">Type</th>
+                      <th className="px-6 py-3.5 text-center font-semibold">Allocated</th>
+                      <th className="px-6 py-3.5 text-center font-semibold">Used</th>
+                      <th className="px-6 py-3.5 text-center font-semibold">Remaining</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {myBalances.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                          No leave balance records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      myBalances.map((b) => (
+                        <tr key={b.timeOffTypeId} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 font-bold text-slate-800">{b.name}</td>
+                          <td className="px-6 py-4 text-center font-semibold text-slate-700">{b.allocated} days</td>
+                          <td className="px-6 py-4 text-center font-semibold text-amber-600">{b.taken} days</td>
+                          <td className="px-6 py-4 text-center font-extrabold text-emerald-600">{b.remaining} days</td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {compOffCredits.map((c) => (
-                          <tr key={c.id} className="hover:bg-slate-50">
-                            <td className="px-6 py-3.5 font-medium text-slate-700">{new Date(c.dateEarned).toLocaleDateString()}</td>
-                            <td className="px-6 py-3.5 text-slate-600">{c.reason || 'Overtime extra work'}</td>
-                            <td className="px-6 py-3.5 font-semibold text-indigo-600">{c.hoursWorked ? `${c.hoursWorked} hrs` : '—'}</td>
-                            <td className="px-6 py-3.5 font-bold text-emerald-600">+{c.daysEarned} day(s)</td>
-                            <td className="px-6 py-3.5 text-amber-600">{c.usedDays} day(s)</td>
-                            <td className="px-6 py-3.5 font-extrabold text-indigo-700">{c.remainingDays} day(s)</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
 
 
           {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {/* SECTION 3: REQUESTS QUEUE                                                    */}
+          {/* SECTION 3: REQUESTS QUEUE / MY REQUESTS LIST                                  */}
           {/* ───────────────────────────────────────────────────────────────────────────── */}
           {(activeTab === 'requests' || activeEmployeeId || !isHR) && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-slate-800">Time Off Requests</h2>
+                  <h2 className="text-base font-bold text-slate-800">
+                    {isHR && !activeEmployeeId ? 'Time Off Requests' : 'My Requests'}
+                  </h2>
                   <p className="text-xs text-slate-500">{requests.length} records</p>
                 </div>
                 <div className="relative">
@@ -612,9 +526,10 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                     <tr>
-                      <th className="px-6 py-3.5 text-left font-semibold">Employee</th>
+                      {isHR && !activeEmployeeId && <th className="px-6 py-3.5 text-left font-semibold">Employee</th>}
                       <th className="px-6 py-3.5 text-left font-semibold">Type</th>
-                      <th className="px-6 py-3.5 text-left font-semibold">Period</th>
+                      <th className="px-6 py-3.5 text-left font-semibold">Start</th>
+                      <th className="px-6 py-3.5 text-left font-semibold">End</th>
                       <th className="px-6 py-3.5 text-left font-semibold">Duration</th>
                       <th className="px-6 py-3.5 text-left font-semibold">Status</th>
                       <th className="px-6 py-3.5 text-right font-semibold">Actions</th>
@@ -623,7 +538,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                   <tbody className="divide-y divide-slate-100">
                     {requests.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                        <td colSpan={isHR && !activeEmployeeId ? 7 : 6} className="px-6 py-8 text-center text-slate-400">
                           No leave requests found.
                         </td>
                       </tr>
@@ -634,32 +549,35 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                           className="hover:bg-slate-50 transition-colors cursor-pointer"
                           onClick={() => setSelectedRequest(r)}
                         >
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-800">
-                              {r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : '—'}
-                            </div>
-                            <div className="text-xs text-slate-400">#{r.employee?.employeeNumber || 'N/A'}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                              {r.timeOffType?.name}
-                            </span>
+                          {isHR && !activeEmployeeId && (
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-slate-800">
+                                {r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : '—'}
+                              </div>
+                              <div className="text-xs text-slate-400">#{r.employee?.employeeNumber || 'N/A'}</div>
+                            </td>
+                          )}
+                          <td className="px-6 py-4 font-bold text-slate-800">
+                            {r.timeOffType?.name}
                           </td>
                           <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
-                            {new Date(r.startDate).toLocaleDateString()} – {new Date(r.endDate).toLocaleDateString()}
+                            {new Date(r.startDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
+                            {new Date(r.endDate).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 font-bold text-slate-800 whitespace-nowrap">
-                            {r.daysRequested} {r.timeOffType?.unit || 'DAYS'}
+                            {r.daysRequested} days
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {r.status === 'APPROVED' || r.status === 'VALIDATED' ? (
                               <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                APPROVED
+                                Approved
                               </span>
                             ) : r.status === 'REFUSED' ? (
                               <div>
                                 <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                                  REFUSED
+                                  Refused
                                 </span>
                                 {r.refusalReason && (
                                   <p className="text-xs text-rose-600 italic mt-1 font-normal">"{r.refusalReason}"</p>
@@ -667,7 +585,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                               </div>
                             ) : (
                               <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                TO APPROVE / PENDING
+                                Pending
                               </span>
                             )}
                           </td>
@@ -681,9 +599,17 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                             {isHR && r.status !== 'APPROVED' && (
                               <button
                                 onClick={() => handleApprove(r.id)}
-                                className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs"
+                                className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs mr-1"
                               >
                                 Approve
+                              </button>
+                            )}
+                            {isHR && r.status !== 'REFUSED' && (
+                              <button
+                                onClick={() => handleRefuse(r.id)}
+                                className="px-3 py-1 bg-rose-600 text-white rounded text-xs font-bold hover:bg-rose-700 transition-colors shadow-xs"
+                              >
+                                Refuse
                               </button>
                             )}
                           </td>
@@ -775,102 +701,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
             </div>
           )}
 
-          {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {/* SECTION 5: CONFIGURABLE LEAVE TYPES                                           */}
-          {/* ───────────────────────────────────────────────────────────────────────────── */}
-          {activeTab === 'types' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200">
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">Time Off Types Configuration</h2>
-                  <p className="text-xs text-slate-500">Manage configurable leave policies, units, and approval rules.</p>
-                </div>
-                {isHR && (
-                  <button
-                    onClick={() => {
-                      setEditingType(null);
-                      setTypeForm({
-                        name: '',
-                        code: '',
-                        description: '',
-                        unit: 'DAYS',
-                        isPaid: true,
-                        requiresAllocation: true,
-                        allocationAmount: 10,
-                        requiresApproval: true,
-                        isEarnedThroughWork: false,
-                        isSandwichLeave: false,
-                        carryForwardDays: 0,
-                        expiryDays: '',
-                      });
-                      setShowTypeModal(true);
-                    }}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-xs shadow-sm"
-                  >
-                    + Add Leave Type
-                  </button>
-                )}
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {types.map((t) => (
-                  <div
-                    key={t.id}
-                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3 cursor-pointer hover:border-indigo-300 transition-colors"
-                    onClick={() => setSelectedType(t)}
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-base">{t.name}</h3>
-                        <span className="text-xs text-slate-400 font-mono">Code: {t.code}</span>
-                      </div>
-                      <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
-                        Active
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-600 italic min-h-[32px]">{t.description || 'No description provided.'}</p>
-
-                    <div className="space-y-1.5 text-xs border-t border-slate-100 pt-3">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Unit:</span>
-                        <strong className="text-slate-800">{t.unit}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Requires Allocation:</span>
-                        <strong className={t.requiresAllocation ? 'text-indigo-600' : 'text-slate-500'}>
-                          {t.requiresAllocation ? 'Yes' : 'No'}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Approval Required:</span>
-                        <strong className={t.requiresApproval ? 'text-emerald-600' : 'text-slate-500'}>
-                          {t.requiresApproval ? 'Yes' : 'No'}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setSelectedType(t)}
-                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded border border-indigo-100"
-                      >
-                        View Configuration
-                      </button>
-                      {isHR && (
-                        <button
-                          onClick={() => openTypeModalForEdit(t)}
-                          className="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
 
         </>
@@ -1183,6 +1014,34 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                   rows={2}
                 />
               </div>
+
+              {/* Dynamic Balance Preview Calculation */}
+              {(() => {
+                const selectedBal = myBalances.find((b) => b.timeOffTypeId === reqForm.timeOffTypeId);
+                if (!selectedBal) return null;
+                const available = selectedBal.remaining;
+                const requested = reqForm.daysRequested || 0;
+                const remainingAfter = available - requested;
+
+                return (
+                  <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3.5 space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-slate-700">
+                      <span className="font-medium">Available:</span>
+                      <span className="font-bold text-slate-900">{available} days</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-700">
+                      <span className="font-medium">Requested:</span>
+                      <span className="font-bold text-indigo-700">{requested} days</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-indigo-200 font-bold">
+                      <span className="text-slate-800">Remaining after approval:</span>
+                      <span className={remainingAfter < 0 ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>
+                        {remainingAfter} days
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button

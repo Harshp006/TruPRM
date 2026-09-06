@@ -193,26 +193,10 @@ const TopNavbar: React.FC = () => {
                   fontSize: '13px',
                   fontWeight: location.pathname.includes('/allocations') ? 'bold' : '500',
                   backgroundColor: location.pathname.includes('/allocations') ? '#f0f4f8' : '#ffffff',
-                  textDecoration: 'none',
-                  borderBottom: '1px solid #e2e8f0'
-                }}
-              >
-                📊 Allocations
-              </Link>
-              <Link
-                to="/time-off/types"
-                onClick={() => setTimeOffOpen(false)}
-                style={{
-                  display: 'block',
-                  padding: '10px 16px',
-                  color: '#003366',
-                  fontSize: '13px',
-                  fontWeight: location.pathname.includes('/types') ? 'bold' : '500',
-                  backgroundColor: location.pathname.includes('/types') ? '#f0f4f8' : '#ffffff',
                   textDecoration: 'none'
                 }}
               >
-                ⚙️ Time Off Types
+                📊 Allocations
               </Link>
             </div>
           )}

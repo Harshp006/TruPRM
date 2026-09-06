@@ -59,8 +59,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/time-off/requests/:requestId" element={<TimeOffPage initialTab="requests" />} />
           <Route path="/time-off/allocations" element={<TimeOffPage initialTab="allocations" />} />
           <Route path="/time-off/allocations/:allocationId" element={<TimeOffPage initialTab="allocations" />} />
-          <Route path="/time-off/types" element={<TimeOffPage initialTab="types" />} />
-          <Route path="/time-off/types/:typeId" element={<TimeOffPage initialTab="types" />} />
+          <Route path="/time-off/types" element={<Navigate to="/time-off/requests" replace />} />
+          <Route path="/time-off/types/:typeId" element={<Navigate to="/time-off/requests" replace />} />
           <Route path="/employees/:employeeId/timeoff" element={<TimeOffPage />} />
           <Route path="/employees/:employeeId/time-off" element={<TimeOffPage />} />
 
