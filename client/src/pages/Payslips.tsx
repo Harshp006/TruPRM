@@ -405,11 +405,10 @@ const Payslips: React.FC = () => {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                 <th className="py-3 px-4">Employee</th>
-                <th className="py-3 px-4">Salary Structure</th>
                 <th className="py-3 px-4">Pay Period</th>
-                <th className="py-3 px-4">Basic Wage</th>
-                <th className="py-3 px-4">Gross Wage</th>
-                <th className="py-3 px-4">Net Wage</th>
+                <th className="py-3 px-4">Generated Date</th>
+                <th className="py-3 px-4">Net Pay</th>
+                <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -425,34 +424,35 @@ const Payslips: React.FC = () => {
                     </div>
                   </td>
                   <td className="py-3.5 px-4 text-slate-600">
-                    {p.salaryStructure ? (
-                      <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 font-medium text-xs rounded-md">
-                        {p.salaryStructure.name}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 text-xs italic">Default</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600">
                     {new Date(p.periodStart).toLocaleDateString()} -{' '}
                     {new Date(p.periodEnd).toLocaleDateString()}
                   </td>
-                  <td className="py-3.5 px-4 text-slate-700">
-                    ₹{Number(p.basicWage || 0).toLocaleString()}
-                  </td>
-                  <td className="py-3.5 px-4 font-medium text-slate-800">
-                    ₹{Number(p.grossWage || 0).toLocaleString()}
+                  <td className="py-3.5 px-4 text-slate-600">
+                    {new Date(p.periodEnd).toLocaleDateString()}
                   </td>
                   <td className="py-3.5 px-4 font-bold text-indigo-600">
                     ₹{Number(p.netWage || 0).toLocaleString()}
                   </td>
-                  <td className="py-3.5 px-4 text-right">
+                  <td className="py-3.5 px-4">
+                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full border border-emerald-200">
+                      {p.payrun?.state || 'GENERATED'}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-4 text-right space-x-2">
                     <button
                       onClick={() => handleOpenDetail(p.id)}
-                      className="inline-flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+                      className="inline-flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition"
                     >
-                      <span>View Payslip</span>
+                      View PDF
                     </button>
+                    <a
+                      href={`http://localhost:5000/api/payslips/${p.id}/pdf?download=true`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg shadow-sm transition"
+                    >
+                      Download PDF
+                    </a>
                   </td>
                 </tr>
               ))}

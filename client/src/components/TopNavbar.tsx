@@ -203,7 +203,7 @@ const TopNavbar: React.FC = () => {
         </div>
 
         {/* Payroll */}
-        {canSeePayroll ? (
+        {canSeePayroll && (
           <Link
             to="/payruns"
             style={{
@@ -220,24 +220,25 @@ const TopNavbar: React.FC = () => {
           >
             Payroll
           </Link>
-        ) : (
-          <Link
-            to="/payslips"
-            style={{
-              padding: '6px 15px',
-              backgroundColor: location.pathname.startsWith('/payslips') ? '#e0e0e0' : '#d4d0c8',
-              color: '#000',
-              border: location.pathname.startsWith('/payslips') ? '2px inset #fff' : '2px outset #fff',
-              borderColor: location.pathname.startsWith('/payslips') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
-              fontSize: '14px',
-              fontWeight: location.pathname.startsWith('/payslips') ? 'bold' : 'normal',
-              textDecoration: 'none',
-              display: 'inline-block'
-            }}
-          >
-            My Payslips
-          </Link>
         )}
+
+        {/* Payslips */}
+        <Link
+          to="/payslips"
+          style={{
+            padding: '6px 15px',
+            backgroundColor: location.pathname.startsWith('/payslips') ? '#e0e0e0' : '#d4d0c8',
+            color: '#000',
+            border: location.pathname.startsWith('/payslips') ? '2px inset #fff' : '2px outset #fff',
+            borderColor: location.pathname.startsWith('/payslips') ? '#999 #fff #fff #999' : '#fff #999 #999 #fff',
+            fontSize: '14px',
+            fontWeight: location.pathname.startsWith('/payslips') ? 'bold' : 'normal',
+            textDecoration: 'none',
+            display: 'inline-block'
+          }}
+        >
+          {canSeePayroll ? 'Payslips' : 'My Payslips'}
+        </Link>
       </div>
     </div>
   );
