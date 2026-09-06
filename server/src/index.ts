@@ -41,6 +41,7 @@ app.use('/api/working-schedules', workingSchedulesRouter);
 app.use('/api/contracts', contractsRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/timeoff', timeoffRouter);
+app.use('/api/time-off', timeoffRouter);
 app.use('/api/salary-structures', salaryStructuresRouter);
 app.use('/api/salary-rules', salaryRulesRouter);
 app.use('/api/payruns', payrunsRouter);

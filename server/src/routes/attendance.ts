@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
 import { AttendanceStatus } from '@prisma/client';
+import { logTimeOffLedger } from '../services/timeoffService';
 
 const router = Router();
 
@@ -207,6 +208,61 @@ router.post('/check-out', async (req: Request, res: Response): Promise<void> => 
         },
       },
     });
+
+    // Auto-accrue Comp-Off credit if overtime >= 4 hours
+    if (overtimeHours >= 4) {
+      try {
+        const daysEarned = overtimeHours >= 8 ? 1.0 : 0.5;
+        let compOffType = await prisma.timeOffType.findFirst({
+          where: { OR: [{ code: 'COMP_OFF' }, { isEarnedThroughWork: true }] },
+        });
+        if (!compOffType) {
+          compOffType = await prisma.timeOffType.create({
+            data: {
+              name: 'Compensatory Leave',
+              code: 'COMP_OFF',
+              description: 'Comp-Off earned from extra hours worked',
+              unit: 'DAYS',
+              isPaid: true,
+              requiresAllocation: false,
+              isEarnedThroughWork: true,
+            },
+          });
+        }
+
+        const existingCredit = await prisma.compOffCredit.findFirst({
+          where: { attendanceId: activeAttendance.id },
+        });
+
+        if (!existingCredit) {
+          const cr = await prisma.compOffCredit.create({
+            data: {
+              employeeId: employee.id,
+              attendanceId: activeAttendance.id,
+              dateEarned: activeAttendance.date,
+              daysEarned,
+              hoursWorked: overtimeHours,
+              reason: `Auto Comp-Off accrued from ${overtimeHours} overtime hours on ${new Date(activeAttendance.date).toISOString().slice(0, 10)}`,
+              status: 'APPROVED',
+              usedDays: 0,
+              remainingDays: daysEarned,
+            },
+          });
+
+          await logTimeOffLedger(
+            employee.id,
+            compOffType.id,
+            'COMP_OFF_EARNED',
+            daysEarned,
+            cr.id,
+            `Auto Comp-Off credited from ${overtimeHours} overtime hours`,
+            null
+          );
+        }
+      } catch (e) {
+        console.error('Failed to auto-accrue Comp-Off credit:', e);
+      }
+    }
 
     res.json({
       message: 'Checked out successfully',

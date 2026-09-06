@@ -2,10 +2,77 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
+import {
+  calculateEmployeeLeaveBalances,
+  calculateLeaveDays,
+  logTimeOffLedger,
+} from '../services/timeoffService';
 
 const router = Router();
 
 router.use(authenticate);
+
+// ==================== HELPER: GET AUTHENTICATED EMPLOYEE ID ====================
+async function getAuthEmployeeId(req: Request): Promise<string | null> {
+  const userId = req.user?.userId;
+  if (!userId) return null;
+  const emp = await prisma.employee.findUnique({ where: { userId } });
+  return emp ? emp.id : null;
+}
+
+// ==================== LEAVE BALANCES ====================
+
+// GET /api/timeoff/balances
+// Employees can only view their own balances; HR/Admin can query any employee or view matrix across employees
+router.get('/balances', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+
+    let targetEmployeeId = req.query.employeeId ? String(req.query.employeeId) : null;
+
+    if (userRole === 'EMPLOYEE') {
+      if (!authEmpId) {
+        res.status(403).json({ message: 'Employee record not found for logged in user' });
+        return;
+      }
+      targetEmployeeId = authEmpId; // Force employee scope
+    }
+
+    const year = req.query.year ? parseInt(String(req.query.year), 10) : new Date().getFullYear();
+
+    if (targetEmployeeId) {
+      // Single employee balance summary
+      const balances = await calculateEmployeeLeaveBalances(targetEmployeeId, year);
+      const employee = await prisma.employee.findUnique({
+        where: { id: targetEmployeeId },
+        select: { id: true, firstName: true, lastName: true, employeeNumber: true, department: true, jobTitle: true },
+      });
+      res.json({ employee, year, balances });
+    } else {
+      // HR Matrix across all employees
+      const employees = await prisma.employee.findMany({
+        select: { id: true, firstName: true, lastName: true, employeeNumber: true, department: true, jobTitle: true, color: true },
+        orderBy: { firstName: 'asc' },
+      });
+
+      const matrix = await Promise.all(
+        employees.map(async (emp) => {
+          const balances = await calculateEmployeeLeaveBalances(emp.id, year);
+          return {
+            employee: emp,
+            balances,
+          };
+        })
+      );
+
+      res.json({ year, matrix });
+    }
+  } catch (err) {
+    console.error('Fetch leave balances error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 // ==================== TIME OFF TYPES ====================
 
@@ -22,43 +89,111 @@ router.get('/types', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// POST /api/timeoff/types
-router.post('/types', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { name, code, unit, isPaid, requiresAllocation, maxDaysPerYear, requiresApproval } = req.body;
-
-    const type = await prisma.timeOffType.create({
-      data: {
+// POST /api/timeoff/types (Create configurable timeoff type)
+router.post(
+  '/types',
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const {
         name,
         code,
-        unit: unit || 'DAYS',
-        isPaid: isPaid ?? true,
-        requiresAllocation: requiresAllocation ?? true,
-        maxDaysPerYear: maxDaysPerYear ? parseFloat(maxDaysPerYear) : null,
-        requiresApproval: requiresApproval ?? true,
-      },
-    });
-    res.status(201).json(type);
-  } catch (err: any) {
-    console.error('Create timeoff type error:', err);
-    res.status(400).json({ message: err.message || 'Error creating time off type' });
+        description,
+        unit,
+        isPaid,
+        requiresAllocation,
+        maxDaysPerYear,
+        requiresApproval,
+        allowEmployeeRequest,
+        isEarnedThroughWork,
+        allowPartialDays,
+        isSandwichLeave,
+        allocationMethod,
+        allocationAmount,
+        carryForwardDays,
+        expiryDays,
+      } = req.body;
+
+      const type = await prisma.timeOffType.create({
+        data: {
+          name,
+          code: code ? String(code).toUpperCase().replace(/\s+/g, '_') : name.toUpperCase().replace(/\s+/g, '_'),
+          description,
+          unit: unit || 'DAYS',
+          isPaid: isPaid ?? true,
+          requiresAllocation: requiresAllocation ?? true,
+          maxDaysPerYear: maxDaysPerYear ? parseFloat(maxDaysPerYear) : null,
+          requiresApproval: requiresApproval ?? true,
+          allowEmployeeRequest: allowEmployeeRequest ?? true,
+          isEarnedThroughWork: isEarnedThroughWork ?? false,
+          allowPartialDays: allowPartialDays ?? true,
+          isSandwichLeave: isSandwichLeave ?? false,
+          allocationMethod: allocationMethod || 'MANUAL',
+          allocationAmount: allocationAmount ? parseFloat(allocationAmount) : 0,
+          carryForwardDays: carryForwardDays ? parseFloat(carryForwardDays) : 0,
+          expiryDays: expiryDays ? parseInt(expiryDays, 10) : null,
+          isActive: true,
+        },
+      });
+      res.status(201).json(type);
+    } catch (err: any) {
+      console.error('Create timeoff type error:', err);
+      res.status(400).json({ message: err.message || 'Error creating time off type' });
+    }
   }
-});
+);
+
+// PUT /api/timeoff/types/:id (Update configurable type)
+router.put(
+  '/types/:id',
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = String(req.params.id);
+      const data = { ...req.body };
+      if (data.maxDaysPerYear != null) data.maxDaysPerYear = parseFloat(data.maxDaysPerYear);
+      if (data.allocationAmount != null) data.allocationAmount = parseFloat(data.allocationAmount);
+      if (data.carryForwardDays != null) data.carryForwardDays = parseFloat(data.carryForwardDays);
+
+      const updated = await prisma.timeOffType.update({
+        where: { id },
+        data,
+      });
+      res.json(updated);
+    } catch (err: any) {
+      console.error('Update timeoff type error:', err);
+      res.status(400).json({ message: err.message || 'Error updating time off type' });
+    }
+  }
+);
 
 // ==================== TIME OFF ALLOCATIONS ====================
 
 // GET /api/timeoff/allocations
 router.get('/allocations', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { employeeId, year } = req.query;
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+
+    const { employeeId: queryEmpId, year } = req.query;
     const where: any = {};
-    if (employeeId) where.employeeId = String(employeeId);
+
+    if (userRole === 'EMPLOYEE') {
+      if (!authEmpId) {
+        res.status(403).json({ message: 'Employee record required' });
+        return;
+      }
+      where.employeeId = authEmpId;
+    } else if (queryEmpId) {
+      where.employeeId = String(queryEmpId);
+    }
+
     if (year) where.year = parseInt(String(year), 10);
 
     const allocations = await prisma.timeOffAllocation.findMany({
       where,
       include: {
-        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true, department: true } },
         timeOffType: true,
       },
       orderBy: { year: 'desc' },
@@ -70,59 +205,91 @@ router.get('/allocations', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// POST /api/timeoff/allocations (Create/Set allocation)
-router.post('/allocations', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { employeeId, timeOffTypeId, year, daysAllocated, validityFrom, validityTo } = req.body;
+// POST /api/timeoff/allocations
+router.post(
+  '/allocations',
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { employeeId, timeOffTypeId, year, daysAllocated, validityFrom, validityTo } = req.body;
+      const allocatedNum = parseFloat(daysAllocated);
+      const yearNum = parseInt(year, 10);
 
-    const allocatedNum = parseFloat(daysAllocated);
+      const allocation = await prisma.$transaction(async (tx) => {
+        const alloc = await tx.timeOffAllocation.upsert({
+          where: {
+            employeeId_timeOffTypeId_year: {
+              employeeId,
+              timeOffTypeId,
+              year: yearNum,
+            },
+          },
+          update: {
+            daysAllocated: allocatedNum,
+            remaining: allocatedNum,
+            validityFrom: validityFrom ? new Date(validityFrom) : null,
+            validityTo: validityTo ? new Date(validityTo) : null,
+          },
+          create: {
+            employeeId,
+            timeOffTypeId,
+            year: yearNum,
+            daysAllocated: allocatedNum,
+            daysUsed: 0,
+            remaining: allocatedNum,
+            validityFrom: validityFrom ? new Date(validityFrom) : null,
+            validityTo: validityTo ? new Date(validityTo) : null,
+          },
+          include: {
+            employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+            timeOffType: true,
+          },
+        });
 
-    const allocation = await prisma.timeOffAllocation.upsert({
-      where: {
-        employeeId_timeOffTypeId_year: {
+        // Audit ledger entry
+        await logTimeOffLedger(
           employeeId,
           timeOffTypeId,
-          year: parseInt(year, 10),
-        },
-      },
-      update: {
-        daysAllocated: allocatedNum,
-        remaining: allocatedNum, // Reset remaining for allocation update
-        validityFrom: validityFrom ? new Date(validityFrom) : null,
-        validityTo: validityTo ? new Date(validityTo) : null,
-      },
-      create: {
-        employeeId,
-        timeOffTypeId,
-        year: parseInt(year, 10),
-        daysAllocated: allocatedNum,
-        daysUsed: 0,
-        remaining: allocatedNum,
-        validityFrom: validityFrom ? new Date(validityFrom) : null,
-        validityTo: validityTo ? new Date(validityTo) : null,
-      },
-      include: {
-        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-        timeOffType: true,
-      },
-    });
+          'ALLOCATION',
+          allocatedNum,
+          alloc.id,
+          `Leave allocation set to ${allocatedNum} days for year ${yearNum}`,
+          req.user?.userId || null,
+          tx
+        );
 
-    res.status(201).json(allocation);
-  } catch (err: any) {
-    console.error('Create timeoff allocation error:', err);
-    res.status(400).json({ message: err.message || 'Error creating allocation' });
+        return alloc;
+      });
+
+      res.status(201).json(allocation);
+    } catch (err: any) {
+      console.error('Create timeoff allocation error:', err);
+      res.status(400).json({ message: err.message || 'Error creating allocation' });
+    }
   }
-});
+);
 
 // ==================== TIME OFF REQUESTS ====================
 
 // GET /api/timeoff/requests
 router.get('/requests', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { employeeId, status, search } = req.query;
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+    const { employeeId: queryEmpId, status, search } = req.query;
+
     const where: any = {};
 
-    if (employeeId) where.employeeId = String(employeeId);
+    if (userRole === 'EMPLOYEE') {
+      if (!authEmpId) {
+        res.status(403).json({ message: 'Employee record required' });
+        return;
+      }
+      where.employeeId = authEmpId;
+    } else if (queryEmpId) {
+      where.employeeId = String(queryEmpId);
+    }
+
     if (status) where.status = String(status);
 
     if (search) {
@@ -137,7 +304,7 @@ router.get('/requests', async (req: Request, res: Response): Promise<void> => {
     const requests = await prisma.timeOffRequest.findMany({
       where,
       include: {
-        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true, color: true } },
+        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true, color: true, department: true } },
         timeOffType: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -150,22 +317,33 @@ router.get('/requests', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// POST /api/timeoff/requests - Submit a request
+// POST /api/timeoff/requests - Submit a leave request
 router.post('/requests', async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+
     const { employeeId: targetEmpId, timeOffTypeId, startDate, endDate, daysRequested, reason } = req.body;
 
     let employeeId = targetEmpId;
-    if (!employeeId && userId) {
-      const emp = await prisma.employee.findUnique({ where: { userId } });
-      if (emp) employeeId = emp.id;
+    if (userRole === 'EMPLOYEE' || !employeeId) {
+      if (!authEmpId) {
+        res.status(400).json({ message: 'Employee record required to submit request' });
+        return;
+      }
+      employeeId = authEmpId;
     }
 
-    if (!employeeId) {
-      res.status(400).json({ message: 'Employee record required to submit time off request' });
+    const timeOffType = await prisma.timeOffType.findUnique({ where: { id: timeOffTypeId } });
+    if (!timeOffType) {
+      res.status(404).json({ message: 'Selected time off type not found' });
       return;
     }
+
+    // Auto-calculate days requested including Sandwich Leave rules if applicable
+    const calculatedDays = daysRequested
+      ? parseFloat(daysRequested)
+      : calculateLeaveDays(new Date(startDate), new Date(endDate), timeOffType.isSandwichLeave);
 
     const request = await prisma.timeOffRequest.create({
       data: {
@@ -173,9 +351,9 @@ router.post('/requests', async (req: Request, res: Response): Promise<void> => {
         timeOffTypeId,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        daysRequested: parseFloat(daysRequested),
+        daysRequested: calculatedDays,
         reason,
-        status: 'CONFIRMED', // Submitted status
+        status: 'CONFIRMED', // Submitted pending approval
       },
       include: {
         employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
@@ -186,150 +364,361 @@ router.post('/requests', async (req: Request, res: Response): Promise<void> => {
     res.status(201).json(request);
   } catch (err: any) {
     console.error('Create timeoff request error:', err);
-    res.status(400).json({ message: err.message || 'Error submitting request' });
+    res.status(400).json({ message: err.message || 'Error submitting leave request' });
   }
 });
 
-// POST /api/timeoff/requests/:id/approve - Approve leave request (STRICT SINGLE PRISMA TRANSACTION)
-router.post('/requests/:id/approve', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const requestId = req.params.id as string;
+// POST /api/timeoff/requests/:id/approve - Approve leave request
+router.post(
+  '/requests/:id/approve',
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const requestId = String(req.params.id);
 
-    const [updatedReq, updatedAlloc] = await prisma.$transaction(async (tx) => {
-      const reqToApprove = await tx.timeOffRequest.findUnique({
-        where: { id: requestId },
-        include: { timeOffType: true },
-      });
-
-      if (!reqToApprove) {
-        throw new Error('Time off request not found');
-      }
-
-      if (reqToApprove.status === 'APPROVED') {
-        throw new Error('Request is already approved');
-      }
-
-      let updatedAllocation = null;
-
-      const timeOffType = (reqToApprove as any).timeOffType;
-
-      if (timeOffType?.requiresAllocation) {
-        const year = new Date(reqToApprove.startDate).getFullYear();
-        const allocation = await tx.timeOffAllocation.findFirst({
-          where: {
-            employeeId: reqToApprove.employeeId,
-            timeOffTypeId: reqToApprove.timeOffTypeId,
-            year,
-          },
+      const [updatedReq, updatedAlloc] = await prisma.$transaction(async (tx) => {
+        const reqToApprove = await tx.timeOffRequest.findUnique({
+          where: { id: requestId },
+          include: { timeOffType: true },
         });
 
-        if (!allocation) {
-          throw new Error(`No time off allocation found for year ${year}`);
+        if (!reqToApprove) {
+          throw new Error('Time off request not found');
         }
 
-        if (allocation.remaining < reqToApprove.daysRequested) {
-          throw new Error(`Insufficient leave allocation balance. Remaining: ${allocation.remaining}, Requested: ${reqToApprove.daysRequested}`);
+        if (reqToApprove.status === 'APPROVED') {
+          throw new Error('Request is already approved');
         }
 
-        // Increment daysUsed and decrement remaining in single transaction
-        updatedAllocation = await tx.timeOffAllocation.update({
-          where: { id: allocation.id },
-          data: {
-            daysUsed: allocation.daysUsed + reqToApprove.daysRequested,
-            remaining: allocation.remaining - reqToApprove.daysRequested,
-          },
-        });
-      }
+        const type = reqToApprove.timeOffType;
+        let updatedAllocation = null;
 
-      const approvedRequest = await tx.timeOffRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'APPROVED',
-          approvedById: req.user?.userId,
-          approvedAt: new Date(),
-        },
-        include: {
-          employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-          timeOffType: true,
-        },
-      });
+        if (type.isEarnedThroughWork || type.code === 'COMP_OFF') {
+          // Comp-Off deduction from available credits
+          const credits = await tx.compOffCredit.findMany({
+            where: {
+              employeeId: reqToApprove.employeeId,
+              status: 'APPROVED',
+              remainingDays: { gt: 0 },
+            },
+            orderBy: { dateEarned: 'asc' },
+          });
 
-      return [approvedRequest, updatedAllocation];
-    });
+          let needed = reqToApprove.daysRequested;
+          for (const credit of credits) {
+            if (needed <= 0) break;
+            const deduct = Math.min(credit.remainingDays, needed);
+            await tx.compOffCredit.update({
+              where: { id: credit.id },
+              data: {
+                usedDays: credit.usedDays + deduct,
+                remainingDays: credit.remainingDays - deduct,
+              },
+            });
+            needed -= deduct;
+          }
+        } else if (type.requiresAllocation) {
+          const year = new Date(reqToApprove.startDate).getFullYear();
+          const allocation = await tx.timeOffAllocation.findFirst({
+            where: {
+              employeeId: reqToApprove.employeeId,
+              timeOffTypeId: reqToApprove.timeOffTypeId,
+              year,
+            },
+          });
 
-    res.json({
-      message: 'Time off request approved successfully',
-      request: updatedReq,
-      allocation: updatedAlloc,
-    });
-  } catch (err: any) {
-    console.error('Approve timeoff request error:', err);
-    res.status(400).json({ message: err.message || 'Failed to approve time off request' });
-  }
-});
+          if (!allocation) {
+            throw new Error(`No leave allocation record found for year ${year}`);
+          }
 
-// POST /api/timeoff/requests/:id/refuse - Refuse leave request
-router.post('/requests/:id/refuse', authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'), async (req: Request, res: Response): Promise<void> => {
-  try {
-    const requestId = req.params.id as string;
-    const { refusalReason } = req.body;
+          if (allocation.remaining < reqToApprove.daysRequested) {
+            throw new Error(`Insufficient leave balance. Remaining: ${allocation.remaining}, Requested: ${reqToApprove.daysRequested}`);
+          }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const existing = await tx.timeOffRequest.findUnique({
-        where: { id: requestId },
-        include: { timeOffType: true },
-      });
-
-      if (!existing) {
-        throw new Error('Time off request not found');
-      }
-
-      const timeOffType = (existing as any).timeOffType;
-
-      // If it was previously approved and required allocation, reverse the allocation decrement
-      if (existing.status === 'APPROVED' && timeOffType?.requiresAllocation) {
-        const year = new Date(existing.startDate).getFullYear();
-        const allocation = await tx.timeOffAllocation.findFirst({
-          where: {
-            employeeId: existing.employeeId,
-            timeOffTypeId: existing.timeOffTypeId,
-            year,
-          },
-        });
-
-        if (allocation) {
-          await tx.timeOffAllocation.update({
+          updatedAllocation = await tx.timeOffAllocation.update({
             where: { id: allocation.id },
             data: {
-              daysUsed: Math.max(0, allocation.daysUsed - existing.daysRequested),
-              remaining: allocation.remaining + existing.daysRequested,
+              daysUsed: allocation.daysUsed + reqToApprove.daysRequested,
+              remaining: allocation.remaining - reqToApprove.daysRequested,
             },
           });
         }
-      }
 
-      const refusedReq = await tx.timeOffRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'REFUSED',
-          refusalReason: refusalReason || 'Request refused by HR/Manager',
-        },
-        include: {
-          employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
-          timeOffType: true,
-        },
+        const approvedRequest = await tx.timeOffRequest.update({
+          where: { id: requestId },
+          data: {
+            status: 'APPROVED',
+            approvedById: req.user?.userId,
+            approvedAt: new Date(),
+          },
+          include: {
+            employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+            timeOffType: true,
+          },
+        });
+
+        // Audit Ledger Logging
+        await logTimeOffLedger(
+          reqToApprove.employeeId,
+          reqToApprove.timeOffTypeId,
+          'LEAVE_TAKEN',
+          -reqToApprove.daysRequested,
+          reqToApprove.id,
+          `Approved leave request #${reqToApprove.id.slice(-6)} (${reqToApprove.daysRequested} ${type.unit})`,
+          req.user?.userId || null,
+          tx
+        );
+
+        return [approvedRequest, updatedAllocation];
       });
 
-      return refusedReq;
+      res.json({
+        message: 'Leave request approved successfully',
+        request: updatedReq,
+        allocation: updatedAlloc,
+      });
+    } catch (err: any) {
+      console.error('Approve timeoff request error:', err);
+      res.status(400).json({ message: err.message || 'Failed to approve leave request' });
+    }
+  }
+);
+
+// POST /api/timeoff/requests/:id/refuse - Refuse leave request
+router.post(
+  '/requests/:id/refuse',
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const requestId = String(req.params.id);
+      const { refusalReason } = req.body;
+
+      const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.timeOffRequest.findUnique({
+          where: { id: requestId },
+          include: { timeOffType: true },
+        });
+
+        if (!existing) {
+          throw new Error('Time off request not found');
+        }
+
+        const type = existing.timeOffType;
+
+        // If previously approved, reverse the deduction
+        if (existing.status === 'APPROVED') {
+          if (type.requiresAllocation && !type.isEarnedThroughWork) {
+            const year = new Date(existing.startDate).getFullYear();
+            const allocation = await tx.timeOffAllocation.findFirst({
+              where: {
+                employeeId: existing.employeeId,
+                timeOffTypeId: existing.timeOffTypeId,
+                year,
+              },
+            });
+
+            if (allocation) {
+              await tx.timeOffAllocation.update({
+                where: { id: allocation.id },
+                data: {
+                  daysUsed: Math.max(0, allocation.daysUsed - existing.daysRequested),
+                  remaining: allocation.remaining + existing.daysRequested,
+                },
+              });
+            }
+          }
+
+          // Log restoration ledger entry
+          await logTimeOffLedger(
+            existing.employeeId,
+            existing.timeOffTypeId,
+            'LEAVE_RESTORED',
+            existing.daysRequested,
+            existing.id,
+            `Restored ${existing.daysRequested} days from refused request #${existing.id.slice(-6)}`,
+            req.user?.userId || null,
+            tx
+          );
+        }
+
+        const refusedReq = await tx.timeOffRequest.update({
+          where: { id: requestId },
+          data: {
+            status: 'REFUSED',
+            refusalReason: refusalReason || 'Request refused by HR/Manager',
+          },
+          include: {
+            employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+            timeOffType: true,
+          },
+        });
+
+        return refusedReq;
+      });
+
+      res.json({
+        message: 'Leave request refused',
+        request: result,
+      });
+    } catch (err: any) {
+      console.error('Refuse timeoff request error:', err);
+      res.status(400).json({ message: err.message || 'Failed to refuse leave request' });
+    }
+  }
+);
+
+// ==================== COMP-OFF CREDITS ====================
+
+// GET /api/timeoff/compoff
+router.get('/compoff', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+    const { employeeId: queryEmpId } = req.query;
+
+    const where: any = {};
+
+    if (userRole === 'EMPLOYEE') {
+      if (!authEmpId) {
+        res.status(403).json({ message: 'Employee record required' });
+        return;
+      }
+      where.employeeId = authEmpId;
+    } else if (queryEmpId) {
+      where.employeeId = String(queryEmpId);
+    }
+
+    const credits = await prisma.compOffCredit.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true, department: true } },
+        attendance: { select: { id: true, date: true, checkIn: true, checkOut: true, overtimeHours: true } },
+      },
+      orderBy: { dateEarned: 'desc' },
     });
 
-    res.json({
-      message: 'Time off request refused',
-      request: result,
+    res.json(credits);
+  } catch (err) {
+    console.error('Fetch comp-off credits error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// POST /api/timeoff/compoff/credit - Award Comp-Off Credit (HR only)
+router.post(
+  '/compoff/credit',
+  authorize('HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { employeeId, dateEarned, daysEarned, hoursWorked, reason, attendanceId, expiryDays } = req.body;
+
+      const daysNum = parseFloat(daysEarned);
+      const dateObj = new Date(dateEarned);
+
+      let expiryDate: Date | null = null;
+      if (expiryDays) {
+        expiryDate = new Date(dateObj);
+        expiryDate.setDate(expiryDate.getDate() + parseInt(expiryDays, 10));
+      }
+
+      // Find or get Comp-Off TimeOffType
+      let compOffType = await prisma.timeOffType.findFirst({
+        where: { OR: [{ code: 'COMP_OFF' }, { isEarnedThroughWork: true }] },
+      });
+
+      if (!compOffType) {
+        compOffType = await prisma.timeOffType.create({
+          data: {
+            name: 'Compensatory Leave',
+            code: 'COMP_OFF',
+            description: 'Comp-Off earned from extra hours worked',
+            unit: 'DAYS',
+            isPaid: true,
+            requiresAllocation: false,
+            isEarnedThroughWork: true,
+          },
+        });
+      }
+
+      const credit = await prisma.$transaction(async (tx) => {
+        const cr = await tx.compOffCredit.create({
+          data: {
+            employeeId,
+            attendanceId: attendanceId || null,
+            dateEarned: dateObj,
+            daysEarned: daysNum,
+            hoursWorked: hoursWorked ? parseFloat(hoursWorked) : null,
+            reason: reason || 'Earned via extra work/overtime',
+            status: 'APPROVED',
+            approvedById: req.user?.userId,
+            expiryDate,
+            usedDays: 0,
+            remainingDays: daysNum,
+          },
+          include: {
+            employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+          },
+        });
+
+        // Audit ledger entry
+        await logTimeOffLedger(
+          employeeId,
+          compOffType.id,
+          'COMP_OFF_EARNED',
+          daysNum,
+          cr.id,
+          `Awarded ${daysNum} day(s) Comp-Off for additional work on ${dateObj.toISOString().slice(0, 10)}`,
+          req.user?.userId || null,
+          tx
+        );
+
+        return cr;
+      });
+
+      res.status(201).json(credit);
+    } catch (err: any) {
+      console.error('Credit Comp-Off error:', err);
+      res.status(400).json({ message: err.message || 'Error crediting Comp-Off' });
+    }
+  }
+);
+
+// ==================== TIME OFF LEDGER / AUDIT TRAIL ====================
+
+// GET /api/timeoff/ledger
+router.get('/ledger', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userRole = req.user?.role;
+    const authEmpId = await getAuthEmployeeId(req);
+    const { employeeId: queryEmpId, timeOffTypeId } = req.query;
+
+    const where: any = {};
+
+    if (userRole === 'EMPLOYEE') {
+      if (!authEmpId) {
+        res.status(403).json({ message: 'Employee record required' });
+        return;
+      }
+      where.employeeId = authEmpId;
+    } else if (queryEmpId) {
+      where.employeeId = String(queryEmpId);
+    }
+
+    if (timeOffTypeId) where.timeOffTypeId = String(timeOffTypeId);
+
+    const ledgers = await prisma.timeOffLedger.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, employeeNumber: true } },
+        timeOffType: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
-  } catch (err: any) {
-    console.error('Refuse timeoff request error:', err);
-    res.status(400).json({ message: err.message || 'Failed to refuse time off request' });
+
+    res.json(ledgers);
+  } catch (err) {
+    console.error('Fetch timeoff ledger error:', err);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 

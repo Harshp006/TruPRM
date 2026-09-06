@@ -223,6 +223,99 @@ async function main() {
     });
     console.log(`✓ Sample employee John Doe (EMP001) contract created.`);
   }
+
+  // 6. Ensure Configurable Time Off Types
+  const defaultTypes = [
+    {
+      name: 'Sick Leave',
+      code: 'SICK',
+      description: 'Leave taken due to illness or medical appointment',
+      unit: 'DAYS',
+      isPaid: true,
+      requiresAllocation: true,
+      allocationAmount: 10,
+      requiresApproval: true,
+      isSandwichLeave: false,
+    },
+    {
+      name: 'Flexi Leave',
+      code: 'FLEXI',
+      description: 'Flexible leave for personal obligations',
+      unit: 'DAYS',
+      isPaid: true,
+      requiresAllocation: true,
+      allocationAmount: 6,
+      requiresApproval: true,
+      isSandwichLeave: false,
+    },
+    {
+      name: 'Compensatory Leave',
+      code: 'COMP_OFF',
+      description: 'Leave earned from extra hours worked / overtime',
+      unit: 'DAYS',
+      isPaid: true,
+      requiresAllocation: false,
+      isEarnedThroughWork: true,
+      requiresApproval: true,
+    },
+    {
+      name: 'Sandwich Leave',
+      code: 'SANDWICH',
+      description: 'Leave spanning weekends where weekend days are included',
+      unit: 'DAYS',
+      isPaid: true,
+      requiresAllocation: true,
+      allocationAmount: 5,
+      requiresApproval: true,
+      isSandwichLeave: true,
+    },
+    {
+      name: 'Paid Annual Leave',
+      code: 'ANNUAL',
+      description: 'Annual vacation leave',
+      unit: 'DAYS',
+      isPaid: true,
+      requiresAllocation: true,
+      allocationAmount: 15,
+      requiresApproval: true,
+    },
+  ];
+
+  for (const t of defaultTypes) {
+    await prisma.timeOffType.upsert({
+      where: { code: t.code },
+      update: t,
+      create: t,
+    });
+  }
+  console.log('✓ Configurable Time Off Types seeded.');
+
+  // Create sample allocations for employees
+  const allEmployees = await prisma.employee.findMany();
+  const allTypes = await prisma.timeOffType.findMany({ where: { requiresAllocation: true } });
+
+  const currentYear = new Date().getFullYear();
+  for (const employee of allEmployees) {
+    for (const type of allTypes) {
+      const existingAlloc = await prisma.timeOffAllocation.findFirst({
+        where: { employeeId: employee.id, timeOffTypeId: type.id, year: currentYear },
+      });
+      if (!existingAlloc) {
+        const allocated = type.allocationAmount || 10;
+        await prisma.timeOffAllocation.create({
+          data: {
+            employeeId: employee.id,
+            timeOffTypeId: type.id,
+            year: currentYear,
+            daysAllocated: allocated,
+            daysUsed: 0,
+            remaining: allocated,
+          },
+        });
+      }
+    }
+  }
+  console.log('✓ Employee leave allocations initialized.');
 }
 
 main()

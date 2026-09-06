@@ -490,7 +490,7 @@ export default function EmployeesPage() {
                   <SmartButton
                     label="Time Off"
                     count={detailEmployee.timeOffSummary?.total ?? detailEmployee._count?.timeOffRequests ?? 0}
-                    onClick={() => navigate(`/time-off?employeeId=${detailEmployee.id}`)}
+                    onClick={() => navigate(`/employees/${detailEmployee.id}/timeoff`)}
                   />
                   <SmartButton
                     label="Payslips"

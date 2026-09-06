@@ -40,6 +40,8 @@ model Employee {
   payslips           Payslip[]
   timeOffAllocations TimeOffAllocation[]
   timeOffRequests    TimeOffRequest[]
+  compOffCredits     CompOffCredit[]
+  timeOffLedgers     TimeOffLedger[]
 }
 
 model Contract {
@@ -95,7 +97,8 @@ model Attendance {
   notes         String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
-  employee      Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee      Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  compOffCredits CompOffCredit[]
 
   @@unique([employeeId, date])
   @@index([employeeId])
@@ -104,18 +107,29 @@ model Attendance {
 }
 
 model TimeOffType {
-  id               String              @id @default(cuid())
-  name             String              @unique
-  code             String              @unique
-  unit             String              @default("DAYS")
-  isPaid           Boolean             @default(true)
-  requiresAllocation Boolean           @default(true)
-  maxDaysPerYear   Float?
-  requiresApproval Boolean             @default(true)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  allocations      TimeOffAllocation[]
-  requests         TimeOffRequest[]
+  id                   String              @id @default(cuid())
+  name                 String              @unique
+  code                 String              @unique
+  description          String?
+  unit                 String              @default("DAYS")
+  isPaid               Boolean             @default(true)
+  requiresAllocation   Boolean             @default(true)
+  maxDaysPerYear       Float?
+  requiresApproval     Boolean             @default(true)
+  allowEmployeeRequest Boolean             @default(true)
+  isEarnedThroughWork  Boolean             @default(false)
+  allowPartialDays     Boolean             @default(true)
+  isSandwichLeave      Boolean             @default(false)
+  allocationMethod     String              @default("MANUAL")
+  allocationAmount     Float?              @default(0)
+  carryForwardDays     Float?              @default(0)
+  expiryDays           Int?
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  allocations          TimeOffAllocation[]
+  requests             TimeOffRequest[]
+  ledgers              TimeOffLedger[]
 }
 
 model TimeOffAllocation {
@@ -152,6 +166,49 @@ model TimeOffRequest {
   updatedAt     DateTime      @updatedAt
   employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   timeOffType   TimeOffType   @relation(fields: [timeOffTypeId], references: [id])
+}
+
+model CompOffCredit {
+  id            String      @id @default(cuid())
+  employeeId    String
+  attendanceId  String?
+  dateEarned    DateTime    @db.Date
+  daysEarned    Float
+  hoursWorked   Float?
+  reason        String?
+  status        String      @default("APPROVED")
+  approvedById  String?
+  expiryDate    DateTime?   @db.Date
+  usedDays      Float       @default(0)
+  remainingDays Float       @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendance Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([dateEarned])
+}
+
+model TimeOffLedger {
+  id            String      @id @default(cuid())
+  employeeId    String
+  timeOffTypeId String
+  type          String
+  amount        Float
+  balanceAfter  Float?
+  referenceId   String?
+  description   String
+  createdById   String?
+  createdAt     DateTime    @default(now())
+
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  timeOffType TimeOffType @relation(fields: [timeOffTypeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([timeOffTypeId])
+  @@index([createdAt])
 }
 
 model SalaryStructure {

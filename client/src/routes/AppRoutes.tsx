@@ -55,6 +55,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/employees/:employeeId/attendance" element={<AttendancePage />} />
           <Route path="/time-off" element={<TimeOffPage />} />
           <Route path="/timeoff" element={<TimeOffPage />} />
+          <Route path="/employees/:employeeId/timeoff" element={<TimeOffPage />} />
+          <Route path="/employees/:employeeId/time-off" element={<TimeOffPage />} />
 
           <Route
             element={
