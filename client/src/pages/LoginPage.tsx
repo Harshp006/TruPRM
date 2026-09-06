@@ -21,7 +21,7 @@ export default function LoginPage() {
       } else if (loggedInUser.role === 'EMPLOYEE') {
         navigate('/payslips');
       } else if (loggedInUser.role === 'HR_PAYROLL_USER') {
-        navigate('/payruns');
+        navigate('/payroll-home');
       } else {
         navigate('/dashboard');
       }

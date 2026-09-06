@@ -19,6 +19,7 @@ import SalaryStructureCreate from '../pages/SalaryStructureCreate';
 import SalaryRules from '../pages/SalaryRules';
 import Payruns from '../pages/Payruns';
 import Payslips from '../pages/Payslips';
+import PayrollHome from '../pages/PayrollHome';
 import Users from '../pages/Users';
 import Settings from '../pages/Settings';
 
@@ -28,7 +29,7 @@ const RoleDefaultRedirect: React.FC = () => {
     return <Navigate to="/payslips" replace />;
   }
   if (user?.role === 'HR_PAYROLL_USER') {
-    return <Navigate to="/payruns" replace />;
+    return <Navigate to="/payroll-home" replace />;
   }
   return <Navigate to="/dashboard" replace />;
 };
@@ -45,6 +46,7 @@ const AppRoutes: React.FC = () => {
 
           {/* Default Dashboard (Role Aware) */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/payroll-home" element={<PayrollHome />} />
           <Route path="/profile" element={<ProfilePage />} />
 
 
