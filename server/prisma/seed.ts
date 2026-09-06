@@ -570,6 +570,42 @@ async function main() {
     });
   }
 
+  // Seed payslip records for February Audit Payrun (including explicit FAILED status for errored employees)
+  for (const uData of demoUsersData) {
+    const emp = await prisma.employee.findFirst({ where: { employeeNumber: uData.empNum } });
+    if (!emp) continue;
+
+    const existingAuditSlip = await prisma.payslip.findFirst({
+      where: { payrunId: febAuditPayrun.id, employeeId: emp.id },
+    });
+
+    if (!existingAuditSlip) {
+      const failsPrecheck = !uData.hasStructure || !uData.hasActiveContract || !uData.bankAccount || uData.wage <= 0;
+      const errors: string[] = [];
+      if (!uData.hasActiveContract) errors.push('No active contract found');
+      if (!uData.hasStructure) errors.push('No salary structure assigned');
+      if (uData.wage <= 0) errors.push('Missing basic salary (wage <= 0)');
+      if (!uData.bankAccount) errors.push('Incomplete bank/payment details');
+
+      await prisma.payslip.create({
+        data: {
+          payrunId: febAuditPayrun.id,
+          employeeId: emp.id,
+          salaryStructureId: uData.hasStructure ? structure.id : null,
+          periodStart: new Date('2026-02-01'),
+          periodEnd: new Date('2026-02-28'),
+          basicWage: failsPrecheck ? 0 : uData.wage,
+          grossWage: 0,
+          totalDeductions: 0,
+          netWage: 0,
+          state: 'DRAFT',
+          status: failsPrecheck ? 'FAILED' : 'PASSED',
+          statusMessage: failsPrecheck ? errors.join(' | ') : null,
+        },
+      });
+    }
+  }
+
   for (const uData of demoUsersData) {
     // STRICT PRE-CHECK HARD GATE FILTER IN SEED
     if (!uData.hasStructure || !uData.hasActiveContract || !uData.bankAccount || uData.wage <= 0) {

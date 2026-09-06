@@ -298,6 +298,27 @@ router.post(
           },
         });
 
+        // Create FAILED payslips for blocked employees
+        for (const blocked of blockedEmployees) {
+          await tx.payslip.create({
+            data: {
+              payrunId: pr.id,
+              employeeId: blocked.employeeId,
+              state: PayslipState.DRAFT,
+              salaryStructureId: null,
+              periodStart: pStart,
+              periodEnd: pEnd,
+              basicWage: 0,
+              grossWage: 0,
+              netWage: 0,
+              totalDeductions: 0,
+              status: 'FAILED',
+              statusMessage: blocked.errors.join(' | '),
+            },
+          });
+        }
+
+        // Create PASSED payslips for eligible employees
         for (const empId of eligibleIds) {
           const contract = await tx.contract.findFirst({
             where: {
@@ -347,7 +368,7 @@ router.post(
   }
 );
 
-// Helper function: Evaluate Pre-Check per employee & delete/block failing DB records
+// Helper function: Evaluate Pre-Check per employee & mark failing DB records
 async function evaluatePayrunPrecheck(payrunId: string) {
   const payrun = await prisma.payrun.findUnique({
     where: { id: payrunId },
@@ -376,9 +397,17 @@ async function evaluatePayrunPrecheck(payrunId: string) {
         errors: check.errors,
       });
 
-      // HARD GATE: Do NOT create or keep Payslip DB record for failing employees
-      await prisma.payslip.delete({
+      // HARD GATE: Mark FAILED status with explicit statusMessage
+      await prisma.payslip.update({
         where: { id: payslip.id },
+        data: {
+          status: 'FAILED',
+          statusMessage: check.errors.join(' | '),
+          basicWage: 0,
+          grossWage: 0,
+          netWage: 0,
+          totalDeductions: 0,
+        },
       });
     } else {
       await prisma.payslip.update({
