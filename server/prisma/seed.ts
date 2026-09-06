@@ -514,7 +514,28 @@ async function main() {
   }
   console.log('✓ Realistic Time Off Requests seeded.');
 
-  // 7. Seed Demo Pay Run & Generated Payslips for Pre-Check Passing Employees
+  // 7. Purge & Seed Demo Pay Run & Generated Payslips (Pre-Check Filtered)
+  const failingUsers = demoUsersData.filter(
+    (u) => !u.hasStructure || !u.hasActiveContract || !u.bankAccount || u.wage <= 0
+  );
+  const failingEmpNums = failingUsers.map((u) => u.empNum);
+
+  const failingEmps = await prisma.employee.findMany({
+    where: { employeeNumber: { in: failingEmpNums } },
+  });
+
+  const failingEmpIds = failingEmps.map((e) => e.id);
+
+  if (failingEmpIds.length > 0) {
+    await prisma.payslipLine.deleteMany({
+      where: { payslip: { employeeId: { in: failingEmpIds } } },
+    });
+    await prisma.payslip.deleteMany({
+      where: { employeeId: { in: failingEmpIds } },
+    });
+    console.log(`✓ Purged legacy payslip records for ${failingEmpIds.length} pre-check failing employees.`);
+  }
+
   let marchPayrun = await prisma.payrun.findFirst({ where: { name: 'March 2026 Regular Payroll' } });
   if (!marchPayrun) {
     marchPayrun = await prisma.payrun.create({
