@@ -63,8 +63,10 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
+
+  const canCreateStructure = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_ADMIN';
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -175,14 +177,16 @@ export default function Dashboard() {
             Real-time analytics for payroll costs, staffing allocation, attendance health, and leave balances.
           </p>
         </div>
-        <div className="flex items-center space-x-4 shrink-0">
-          <button
-            onClick={() => navigate('/salary-structures/new')}
-            className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all whitespace-nowrap"
-          >
-            + Create Salary Structure
-          </button>
-        </div>
+        {canCreateStructure && (
+          <div className="flex items-center space-x-4 shrink-0">
+            <button
+              onClick={() => navigate('/salary-structures/new')}
+              className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+            >
+              + Create Salary Structure
+            </button>
+          </div>
+        )}
       </div>
 
       {/* -------------------------------------------------------------------- */}

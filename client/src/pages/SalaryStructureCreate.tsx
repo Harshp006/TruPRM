@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   createSalaryStructure,
   type SalaryRuleCategory,
@@ -56,6 +57,27 @@ const RULE_PRESETS = [
 
 export default function SalaryStructureCreate() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isAllowed = user?.role === 'ADMIN' || user?.role === 'HR_PAYROLL_ADMIN';
+
+  if (!isAllowed) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 max-w-lg mx-auto mt-12 shadow-sm space-y-4">
+        <div className="text-4xl">🚫</div>
+        <h2 className="text-xl font-bold text-slate-800">Access Denied</h2>
+        <p className="text-xs text-slate-500">
+          Creating salary structures is strictly an HR Payroll Manager function.
+        </p>
+        <button
+          onClick={() => navigate('/salary-structures')}
+          className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-indigo-700 transition"
+        >
+          Return to Salary Structures
+        </button>
+      </div>
+    );
+  }
 
   // Section 1 & 2: Structure Details State
   const [name, setName] = useState('');
