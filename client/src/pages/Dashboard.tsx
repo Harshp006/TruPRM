@@ -171,22 +171,61 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-200">
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold text-brand-700 tracking-tight">
-            Manager Dashboard
+            HR Payroll Manager Control Portal
           </h1>
           <p className="text-slate-500 text-base max-w-4xl leading-relaxed font-normal">
-            Real-time analytics for payroll costs, staffing allocation, attendance health, and leave balances.
+            Strategic control center for payroll configuration, component rules, exception audits, and cost aggregation.
           </p>
         </div>
         {canCreateStructure && (
-          <div className="flex items-center space-x-4 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
               onClick={() => navigate('/salary-structures/new')}
-              className="px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all whitespace-nowrap"
             >
               + Create Salary Structure
             </button>
+            <button
+              onClick={() => navigate('/salary-rules')}
+              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all whitespace-nowrap"
+            >
+              Manage Salary Rules
+            </button>
+            <button
+              onClick={() => navigate('/payruns')}
+              className="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all whitespace-nowrap"
+            >
+              Manage Pay Runs
+            </button>
           </div>
         )}
+      </div>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* PAYROLL SYSTEM CONFIGURATION & READINESS AUDIT                       */}
+      {/* -------------------------------------------------------------------- */}
+      <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">System Configuration Health</span>
+          </div>
+          <h2 className="text-xl font-extrabold text-white">Payroll Setup & Readiness Verification</h2>
+          <p className="text-xs text-slate-300 max-w-2xl">
+            Calculations depend on active Salary Structures and Salary Rules. Verify rule formulas before User execution.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 bg-slate-800/80 p-4 rounded-xl border border-slate-700/80 text-xs shrink-0">
+          <div>
+            <div className="text-slate-400 font-medium">Configured Structures:</div>
+            <div className="text-lg font-bold text-white">{data?.modelsSummary?.contractsCount ? 'Active' : 'Ready'}</div>
+          </div>
+          <div className="h-8 w-px bg-slate-700"></div>
+          <div>
+            <div className="text-slate-400 font-medium">Pre-Check Exceptions:</div>
+            <div className="text-lg font-bold text-amber-400">{data?.currentAlerts?.length || 0} Alerts</div>
+          </div>
+        </div>
       </div>
 
       {/* -------------------------------------------------------------------- */}

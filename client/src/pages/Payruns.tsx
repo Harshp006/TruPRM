@@ -480,14 +480,16 @@ const Payruns: React.FC = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Workspace Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Pay Runs</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            {user?.role === 'HR_PAYROLL_USER' ? 'Operational Pay Runs Workspace' : 'Pay Runs Management'}
+          </h1>
           <p className="text-slate-500 text-sm mt-1">
-            {isHRUser
-              ? 'Create, validate, compute, and approve monthly employee payroll runs.'
-              : 'Read-only view of processed pay runs and finalized employee payslips.'}
+            {user?.role === 'HR_PAYROLL_USER'
+              ? 'Execute today’s and monthly employee payroll cycles, perform pre-check validations, compute wages, and generate official payslips.'
+              : 'Overview and audit of historical and active employee pay cycles.'}
           </p>
         </div>
 
@@ -500,12 +502,49 @@ const Payruns: React.FC = () => {
         {isHRUser && (
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition"
+            className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition shrink-0"
           >
             <span>+ Create Pay Run</span>
           </button>
         )}
       </div>
+
+      {/* Operational Summary Bar for Payroll User */}
+      {user?.role === 'HR_PAYROLL_USER' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-xl shadow-2xs flex flex-col justify-between">
+            <span className="text-xs font-bold text-indigo-900 uppercase tracking-wider">Active Pay Runs</span>
+            <div className="text-2xl font-black text-indigo-800 mt-1">
+              {payruns.filter(p => p.state !== 'DONE' && p.state !== 'CANCELLED').length}
+            </div>
+            <span className="text-[11px] text-indigo-600 font-semibold mt-1">Awaiting completion</span>
+          </div>
+
+          <div className="bg-amber-50/70 border border-amber-100 p-4 rounded-xl shadow-2xs flex flex-col justify-between">
+            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Validation Errors</span>
+            <div className="text-2xl font-black text-amber-800 mt-1">
+              {payruns.filter(p => p.state === 'VALIDATION_ERROR').length}
+            </div>
+            <span className="text-[11px] text-amber-700 font-semibold mt-1">Requires pre-check fix</span>
+          </div>
+
+          <div className="bg-blue-50/70 border border-blue-100 p-4 rounded-xl shadow-2xs flex flex-col justify-between">
+            <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">Validated / Computed</span>
+            <div className="text-2xl font-black text-blue-800 mt-1">
+              {payruns.filter(p => p.state === 'VALIDATED' || p.state === 'COMPUTED').length}
+            </div>
+            <span className="text-[11px] text-blue-600 font-semibold mt-1">Ready for payslips</span>
+          </div>
+
+          <div className="bg-emerald-50/70 border border-emerald-100 p-4 rounded-xl shadow-2xs flex flex-col justify-between">
+            <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">Payslips Generated</span>
+            <div className="text-2xl font-black text-emerald-800 mt-1">
+              {payruns.filter(p => p.state === 'DONE' || p.state === 'PAID').length}
+            </div>
+            <span className="text-[11px] text-emerald-600 font-semibold mt-1">Finalized pay cycles</span>
+          </div>
+        </div>
+      )}
 
       {/* Unified Search & Filter Control Bar */}
       <SearchFilterBar

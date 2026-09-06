@@ -298,26 +298,28 @@ const TopNavbar: React.FC = () => {
                     fontWeight: location.pathname.startsWith('/salary-structures') ? 'bold' : '500',
                     backgroundColor: location.pathname.startsWith('/salary-structures') ? '#f0f4f8' : '#ffffff',
                     textDecoration: 'none',
-                    borderBottom: '1px solid #e2e8f0'
+                    borderBottom: isManagerRole ? '1px solid #e2e8f0' : 'none'
                   }}
                 >
                   ⚙️ Salary Structures {!isManagerRole && <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>(Read-Only)</span>}
                 </Link>
-                <Link
-                  to="/salary-rules"
-                  onClick={() => setPayrollOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '10px 16px',
-                    color: '#003366',
-                    fontSize: '13px',
-                    fontWeight: location.pathname.startsWith('/salary-rules') ? 'bold' : '500',
-                    backgroundColor: location.pathname.startsWith('/salary-rules') ? '#f0f4f8' : '#ffffff',
-                    textDecoration: 'none'
-                  }}
-                >
-                  📐 Salary Rules {!isManagerRole && <span style={{ fontSize: '11px', color: '#666', fontStyle: 'italic' }}>(Read-Only)</span>}
-                </Link>
+                {isManagerRole && (
+                  <Link
+                    to="/salary-rules"
+                    onClick={() => setPayrollOpen(false)}
+                    style={{
+                      display: 'block',
+                      padding: '10px 16px',
+                      color: '#003366',
+                      fontSize: '13px',
+                      fontWeight: location.pathname.startsWith('/salary-rules') ? 'bold' : '500',
+                      backgroundColor: location.pathname.startsWith('/salary-rules') ? '#f0f4f8' : '#ffffff',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    📐 Salary Rules
+                  </Link>
+                )}
               </div>
             )}
           </div>
