@@ -15,8 +15,39 @@ export interface Employee {
   createdAt: string;
   updatedAt: string;
   manager?: { id: string; firstName: string; lastName: string } | null;
-  contracts?: Contract[];
-  _count?: { contracts: number; attendances: number; timeOffRequests: number };
+  contracts?: Array<Contract & {
+    salaryStructure?: { id: string; name: string; code: string };
+    workingSchedule?: { id: string; name: string; hoursPerWeek: number };
+  }>;
+  attendances?: Attendance[];
+  timeOffRequests?: Array<TimeOffRequest & {
+    timeOffType?: TimeOffType;
+  }>;
+  payslips?: Array<{
+    id: string;
+    basicWage: number;
+    grossWage?: number;
+    netWage?: number;
+    status: string;
+    periodStart: string;
+    periodEnd: string;
+    payrun?: { id: string; name: string; state: string; periodStart: string; periodEnd: string };
+    salaryStructure?: { id: string; name: string };
+  }>;
+  attendanceSummary?: {
+    total: number;
+    presentDays: number;
+    absentDays: number;
+    lateDays: number;
+    totalWorkedHours: number;
+  };
+  timeOffSummary?: {
+    total: number;
+    pending: number;
+    approved: number;
+    refused: number;
+  };
+  _count?: { contracts: number; attendances: number; timeOffRequests: number; payslips?: number };
   user?: { email: string; role: string };
 }
 
@@ -53,18 +84,8 @@ export interface ScheduleLine {
   timeTo: string;
 }
 
-export interface Attendance {
-  id: string;
-  employeeId: string;
-  date: string;
-  checkIn?: string;
-  checkOut?: string;
-  workedHours?: number;
-  status: string;
-  notes?: string;
-  createdAt: string;
-  employee?: { id: string; firstName: string; lastName: string; employeeNumber: string; color?: string };
-}
+import type { AttendanceRecord } from './attendance';
+export type Attendance = AttendanceRecord;
 
 export interface TimeOffType {
   id: string;
@@ -129,9 +150,12 @@ export const createContract = (data: Partial<Contract>) => api.post<Contract>('/
 export const updateContract = (id: string, data: Partial<Contract>) => api.put<Contract>(`/api/contracts/${id}`, data).then(r => r.data);
 
 // Attendance APIs
-export const fetchAttendanceStatus = () => api.get<{ isCheckedIn: boolean; activeAttendance: Attendance | null }>('/api/attendance/status').then(r => r.data);
+export const fetchAttendanceStatus = () => api.get<{ isCheckedIn: boolean; activeAttendance: Attendance | null; todayWorkedHours?: number; employee?: any }>('/api/attendance/status').then(r => r.data);
+export const checkInAttendance = () => api.post<{ message: string; isCheckedIn: boolean; attendance: Attendance }>('/api/attendance/check-in').then(r => r.data);
+export const checkOutAttendance = () => api.post<{ message: string; isCheckedIn: boolean; attendance: Attendance }>('/api/attendance/check-out').then(r => r.data);
 export const toggleAttendance = () => api.post<{ message: string; isCheckedIn: boolean; attendance: Attendance }>('/api/attendance/toggle').then(r => r.data);
-export const fetchAttendances = (params?: { employeeId?: string; search?: string }) => api.get<Attendance[]>('/api/attendance', { params }).then(r => r.data);
+export const fetchAttendances = (params?: { employeeId?: string; search?: string; status?: string; period?: string; startDate?: string; endDate?: string }) => api.get<Attendance[]>('/api/attendance', { params }).then(r => r.data);
+export const fetchAttendanceDetail = (id: string) => api.get<Attendance>(`/api/attendance/${id}`).then(r => r.data);
 export const createAttendance = (data: Partial<Attendance>) => api.post<Attendance>('/api/attendance', data).then(r => r.data);
 export const updateAttendance = (id: string, data: Partial<Attendance>) => api.put<Attendance>(`/api/attendance/${id}`, data).then(r => r.data);
 
@@ -156,7 +180,7 @@ export type SalaryRuleCategory =
   | 'GROSS'
   | 'NET';
 
-export type RuleCalculationType = 'FIXED_AMOUNT' | 'PERCENTAGE' | 'FORMULA';
+export type RuleCalculationType = 'FIXED_AMOUNT' | 'PERCENTAGE' | 'FORMULA' | 'EMPLOYEE_BASIC';
 
 export interface SalaryRule {
   id?: string;
@@ -225,4 +249,6 @@ export const updateSalaryRule = (id: string, data: Partial<SalaryRule>) =>
 
 export const deleteSalaryRule = (id: string) =>
   api.delete(`/api/salary-rules/${id}`).then(r => r.data);
+
+export * from './attendance';
 

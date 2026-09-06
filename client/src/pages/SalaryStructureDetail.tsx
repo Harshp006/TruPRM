@@ -8,7 +8,6 @@ import {
   createSalaryRule,
   updateSalaryRule,
   deleteSalaryRule,
-  calculateSalaryStructure,
   type SalaryStructure,
   type SalaryRule,
   type SalaryRuleCategory,
@@ -18,7 +17,7 @@ import {
 
 
 const RULE_PRESETS = [
-  { name: 'Basic Salary', code: 'BASIC', category: 'EARNING', sequence: 1, calculationType: 'FIXED_AMOUNT', fixedAmount: 30000, roundingRule: 'NEAREST' },
+  { name: 'Basic Salary', code: 'BASIC', category: 'EARNING', sequence: 1, calculationType: 'EMPLOYEE_BASIC', fixedAmount: null, roundingRule: 'NEAREST' },
   { name: 'House Rent Allowance (HRA)', code: 'HRA', category: 'EARNING', sequence: 2, calculationType: 'PERCENTAGE', percentage: 40, baseCode: 'BASIC', roundingRule: 'NEAREST' },
   { name: 'Transport Allowance', code: 'TRANS', category: 'EARNING', sequence: 3, calculationType: 'FIXED_AMOUNT', fixedAmount: 3000, roundingRule: 'NEAREST' },
   { name: 'Medical Allowance', code: 'MED', category: 'EARNING', sequence: 4, calculationType: 'FIXED_AMOUNT', fixedAmount: 1500, roundingRule: 'NEAREST' },
@@ -54,17 +53,6 @@ export default function SalaryStructureDetail() {
   const [structEffectiveTo, setStructEffectiveTo] = useState<string>('');
   const [structEditError, setStructEditError] = useState<string>('');
   const [isSavingStruct, setIsSavingStruct] = useState<boolean>(false);
-
-  // Live Calculation Preview State
-  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
-  const [calcContextWage, setCalcContextWage] = useState<number>(30000);
-  const [calcOvertimeHours, setCalcOvertimeHours] = useState<number>(5);
-  const [calcOvertimeRate, setCalcOvertimeRate] = useState<number>(250);
-  const [calcUnpaidLeaveDays, setCalcUnpaidLeaveDays] = useState<number>(1);
-  const [calcDailySalary, _setCalcDailySalary] = useState<number>(1000);
-  const [calcIsPf, setCalcIsPf] = useState<boolean>(true);
-  const [calcResult, setCalcResult] = useState<any | null>(null);
-  const [isCalculating, setIsCalculating] = useState<boolean>(false);
 
   // Rule Modal State
   const [isRuleModalOpen, setIsRuleModalOpen] = useState<boolean>(false);
@@ -122,7 +110,6 @@ export default function SalaryStructureDetail() {
     setRuleCalcFilter('ALL');
     setRuleStatusFilter('ALL');
   };
-
   const loadData = async () => {
     if (!id) return;
     setLoading(true);
@@ -130,9 +117,6 @@ export default function SalaryStructureDetail() {
     try {
       const data = await fetchSalaryStructure(id);
       setStructure(data);
-      if (data) {
-        runCalculationPreview(data.id);
-      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load salary structure details.');
     } finally {
@@ -143,27 +127,6 @@ export default function SalaryStructureDetail() {
   useEffect(() => {
     loadData();
   }, [id]);
-
-  const runCalculationPreview = async (structId?: string) => {
-    const targetId = structId || id;
-    if (!targetId) return;
-    setIsCalculating(true);
-    try {
-      const result = await calculateSalaryStructure(targetId, {
-        contractWage: Number(calcContextWage) || 0,
-        overtimeHours: Number(calcOvertimeHours) || 0,
-        overtimeRate: Number(calcOvertimeRate) || 0,
-        unpaidLeaveDays: Number(calcUnpaidLeaveDays) || 0,
-        dailySalary: Number(calcDailySalary) || 0,
-        isPfApplicable: calcIsPf,
-      });
-      setCalcResult(result);
-    } catch (err: any) {
-      console.error('Calculation preview error:', err);
-    } finally {
-      setIsCalculating(false);
-    }
-  };
 
   const openEditStructModal = () => {
     if (!structure) return;
@@ -228,12 +191,14 @@ export default function SalaryStructureDetail() {
     setRuleCategory(p.category as SalaryRuleCategory);
     setRuleSequence(p.sequence);
     setRuleCalculationType(p.calculationType as RuleCalculationType);
-    if (p.fixedAmount !== undefined) setRuleFixedAmount(String(p.fixedAmount));
-    if (p.percentage !== undefined) setRulePercentage(String(p.percentage));
+    if (p.fixedAmount !== undefined && p.fixedAmount !== null) setRuleFixedAmount(String(p.fixedAmount));
+    else setRuleFixedAmount('');
+    if (p.percentage !== undefined && p.percentage !== null) setRulePercentage(String(p.percentage));
+    else setRulePercentage('');
     if (p.baseCode) setRuleBaseCode(p.baseCode);
     if (p.formula) setRuleFormula(p.formula);
     if (p.conditionType) setRuleConditionType(p.conditionType);
-    if (p.conditionValue !== undefined) setRuleConditionValue(String(p.conditionValue));
+    if (p.conditionValue !== undefined && p.conditionValue !== null) setRuleConditionValue(String(p.conditionValue));
     if (p.roundingRule) setRuleRounding(p.roundingRule);
   };
 
@@ -264,11 +229,12 @@ export default function SalaryStructureDetail() {
     setRuleCode(rule.code);
     setRuleCategory(rule.category);
     setRuleSequence(rule.sequence);
-    setRuleCalculationType(rule.calculationType);
+    const isBasicRule = rule.code === 'BASIC' || (rule.calculationType as string) === 'EMPLOYEE_BASIC';
+    setRuleCalculationType(isBasicRule ? 'EMPLOYEE_BASIC' : rule.calculationType);
     setRuleFixedAmount(
-      rule.fixedAmount !== null && rule.fixedAmount !== undefined
+      !isBasicRule && rule.fixedAmount !== null && rule.fixedAmount !== undefined
         ? String(rule.fixedAmount)
-        : rule.amountFixed !== null && rule.amountFixed !== undefined
+        : !isBasicRule && rule.amountFixed !== null && rule.amountFixed !== undefined
         ? String(rule.amountFixed)
         : ''
     );
@@ -313,17 +279,20 @@ export default function SalaryStructureDetail() {
       return;
     }
 
-    if (ruleCalculationType === 'FIXED_AMOUNT' && !ruleFixedAmount) {
+    const isBasicRule = ruleCode.trim().toUpperCase() === 'BASIC' || ruleCalculationType === 'EMPLOYEE_BASIC';
+    const effectiveCalcType = isBasicRule ? 'EMPLOYEE_BASIC' : ruleCalculationType;
+
+    if (effectiveCalcType === 'FIXED_AMOUNT' && !ruleFixedAmount) {
       setRuleFormError('Fixed Amount (₹) is required for FIXED_AMOUNT type.');
       return;
     }
 
-    if (ruleCalculationType === 'PERCENTAGE' && !rulePercentage) {
+    if (effectiveCalcType === 'PERCENTAGE' && !rulePercentage) {
       setRuleFormError('Percentage (%) is required for PERCENTAGE type.');
       return;
     }
 
-    if (ruleCalculationType === 'FORMULA' && !ruleFormula.trim()) {
+    if (effectiveCalcType === 'FORMULA' && !ruleFormula.trim()) {
       setRuleFormError('Formula expression is required for FORMULA type.');
       return;
     }
@@ -342,11 +311,11 @@ export default function SalaryStructureDetail() {
         code: ruleCode.trim().toUpperCase(),
         category: ruleCategory,
         sequence: Number(ruleSequence),
-        calculationType: ruleCalculationType,
-        fixedAmount: ruleCalculationType === 'FIXED_AMOUNT' ? Number(ruleFixedAmount) : null,
-        percentage: ruleCalculationType === 'PERCENTAGE' ? numericPercentage : null,
-        baseCode: ruleCalculationType === 'PERCENTAGE' ? ruleBaseCode || 'BASIC' : null,
-        formula: ruleCalculationType === 'FORMULA' ? ruleFormula.trim() : null,
+        calculationType: effectiveCalcType,
+        fixedAmount: effectiveCalcType === 'FIXED_AMOUNT' ? Number(ruleFixedAmount) : null,
+        percentage: effectiveCalcType === 'PERCENTAGE' ? numericPercentage : null,
+        baseCode: effectiveCalcType === 'PERCENTAGE' ? ruleBaseCode || 'BASIC' : null,
+        formula: effectiveCalcType === 'FORMULA' ? ruleFormula.trim() : null,
         conditionType: ruleConditionType,
         conditionValue: ruleConditionValue ? Number(ruleConditionValue) : null,
         condition: ruleCustomCondition.trim() || ruleConditionType,
@@ -448,15 +417,6 @@ export default function SalaryStructureDetail() {
         >
           ← Back to Salary Structures List
         </Link>
-        <button
-          onClick={() => {
-            setIsPreviewOpen(!isPreviewOpen);
-            if (!calcResult) runCalculationPreview();
-          }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold rounded-lg transition"
-        >
-          {isPreviewOpen ? 'Hide Calculation Simulator' : '⚡ Live Calculation Simulator'}
-        </button>
       </div>
 
       {/* Notifications */}
@@ -464,107 +424,6 @@ export default function SalaryStructureDetail() {
         <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between">
           <span>{successMsg}</span>
           <button onClick={() => setSuccessMsg('')} className="text-emerald-600 font-bold ml-4">×</button>
-        </div>
-      )}
-
-      {/* LIVE CALCULATION SIMULATOR PANEL */}
-      {isPreviewOpen && (
-        <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xl space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400">
-                Rule Engine Execution Test
-              </span>
-              <h2 className="text-lg font-bold text-white">⚡ Live Calculation Simulator</h2>
-            </div>
-            <button
-              onClick={() => setIsPreviewOpen(false)}
-              className="text-slate-400 hover:text-white text-xl font-bold p-1"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs">
-            <div>
-              <label className="block text-slate-400 font-medium mb-1">Base Wage (₹)</label>
-              <input
-                type="number"
-                value={calcContextWage}
-                onChange={(e) => setCalcContextWage(Number(e.target.value))}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-mono focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 font-medium mb-1">Overtime Hours</label>
-              <input
-                type="number"
-                value={calcOvertimeHours}
-                onChange={(e) => setCalcOvertimeHours(Number(e.target.value))}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-mono focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 font-medium mb-1">OT Rate (₹/hr)</label>
-              <input
-                type="number"
-                value={calcOvertimeRate}
-                onChange={(e) => setCalcOvertimeRate(Number(e.target.value))}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-mono focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 font-medium mb-1">Unpaid Leave Days</label>
-              <input
-                type="number"
-                value={calcUnpaidLeaveDays}
-                onChange={(e) => setCalcUnpaidLeaveDays(Number(e.target.value))}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-mono focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 font-medium mb-1">PF Applicable</label>
-              <select
-                value={calcIsPf ? 'YES' : 'NO'}
-                onChange={(e) => setCalcIsPf(e.target.value === 'YES')}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-indigo-500"
-              >
-                <option value="YES">YES</option>
-                <option value="NO">NO</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <button
-              onClick={() => runCalculationPreview()}
-              disabled={isCalculating}
-              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition"
-            >
-              {isCalculating ? 'Computing Rules...' : 'Re-Run Rule Engine Preview'}
-            </button>
-          </div>
-
-          {calcResult && (
-            <div className="pt-3 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
-              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Simulated Gross</span>
-                <p className="text-lg font-bold text-emerald-400 mt-0.5">₹{(calcResult.grossSalary || 0).toLocaleString()}</p>
-              </div>
-              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Simulated Deductions</span>
-                <p className="text-lg font-bold text-rose-400 mt-0.5">₹{(calcResult.totalDeductions || 0).toLocaleString()}</p>
-              </div>
-              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Employer Contribution</span>
-                <p className="text-lg font-bold text-indigo-400 mt-0.5">₹{(calcResult.totalEmployerContribution || 0).toLocaleString()}</p>
-              </div>
-              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Simulated Net Take-Home</span>
-                <p className="text-xl font-extrabold text-white mt-0.5">₹{(calcResult.netSalary || 0).toLocaleString()}</p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1104,25 +963,37 @@ export default function SalaryStructureDetail() {
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Calculation Type *
                   </label>
-                  <div className="flex items-center gap-4">
-                    {(['FIXED_AMOUNT', 'PERCENTAGE', 'FORMULA'] as RuleCalculationType[]).map((type) => (
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {(['FIXED_AMOUNT', 'PERCENTAGE', 'FORMULA', 'EMPLOYEE_BASIC'] as RuleCalculationType[]).map((type) => (
                       <label key={type} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
                         <input
                           type="radio"
                           name="calcType"
                           value={type}
-                          checked={ruleCalculationType === type}
+                          checked={ruleCalculationType === type || (ruleCode === 'BASIC' && type === 'EMPLOYEE_BASIC')}
                           onChange={() => setRuleCalculationType(type)}
                           className="text-indigo-600 focus:ring-indigo-500"
                         />
-                        {type}
+                        {type === 'EMPLOYEE_BASIC' ? 'Employee Basic Salary (From Contract)' : type}
                       </label>
                     ))}
                   </div>
                 </div>
 
+                {/* EMPLOYEE_BASIC Informational Banner */}
+                {(ruleCalculationType === 'EMPLOYEE_BASIC' || ruleCode === 'BASIC') && (
+                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-900 font-medium space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <span>ℹ️ Dynamic Employee Basic Salary</span>
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-indigo-800">
+                      Basic Salary is employee-specific and automatically derived from each employee's active contract/salary record in the database during payroll processing. No manual amount entry is required.
+                    </p>
+                  </div>
+                )}
+
                 {/* FIXED_AMOUNT Input */}
-                {ruleCalculationType === 'FIXED_AMOUNT' && (
+                {ruleCalculationType === 'FIXED_AMOUNT' && ruleCode !== 'BASIC' && (
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">
                       Fixed Amount (₹) *
@@ -1346,9 +1217,19 @@ export default function SalaryStructureDetail() {
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
                   <div>
                     <span className="text-slate-500 font-medium">Type: </span>
-                    <span className="font-bold text-slate-800">{viewingRule.calculationType}</span>
+                    <span className="font-bold text-slate-800">
+                      {viewingRule.calculationType === 'EMPLOYEE_BASIC' || viewingRule.code === 'BASIC'
+                        ? 'EMPLOYEE_BASIC (Employee Basic Salary)'
+                        : viewingRule.calculationType}
+                    </span>
                   </div>
-                  {viewingRule.calculationType === 'FIXED_AMOUNT' && (
+                  {(viewingRule.calculationType === 'EMPLOYEE_BASIC' || viewingRule.code === 'BASIC') && (
+                    <div>
+                      <span className="text-slate-500 font-medium">Source: </span>
+                      <span className="font-bold text-indigo-700">Dynamic Employee Contract / Basic Salary (Database)</span>
+                    </div>
+                  )}
+                  {viewingRule.calculationType === 'FIXED_AMOUNT' && viewingRule.code !== 'BASIC' && (
                     <div>
                       <span className="text-slate-500 font-medium">Fixed Amount: </span>
                       <span className="font-bold text-emerald-700">₹{(viewingRule.fixedAmount ?? viewingRule.amountFixed ?? 0).toLocaleString()}</span>

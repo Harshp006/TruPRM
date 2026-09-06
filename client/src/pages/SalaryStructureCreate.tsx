@@ -32,7 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const RULE_PRESETS = [
   // EARNINGS
-  { name: 'Basic Salary', code: 'BASIC', category: 'EARNING', sequence: 1, calculationType: 'FIXED_AMOUNT', fixedAmount: 50000, roundingRule: 'NEAREST' },
+  { name: 'Basic Salary', code: 'BASIC', category: 'EARNING', sequence: 1, calculationType: 'EMPLOYEE_BASIC', fixedAmount: null, roundingRule: 'NEAREST' },
   { name: 'House Rent Allowance (HRA)', code: 'HRA', category: 'EARNING', sequence: 2, calculationType: 'PERCENTAGE', percentage: 40, baseCode: 'BASIC', roundingRule: 'NEAREST' },
   { name: 'Transport Allowance', code: 'TRANS', category: 'EARNING', sequence: 3, calculationType: 'FIXED_AMOUNT', fixedAmount: 3000, roundingRule: 'NEAREST' },
   { name: 'Medical Allowance', code: 'MED', category: 'EARNING', sequence: 4, calculationType: 'FIXED_AMOUNT', fixedAmount: 2500, roundingRule: 'NEAREST' },
@@ -103,12 +103,14 @@ export default function SalaryStructureCreate() {
     setRuleCategory(p.category as SalaryRuleCategory);
     setRuleSequence(p.sequence);
     setRuleCalculationType(p.calculationType as RuleCalculationType);
-    if (p.fixedAmount !== undefined) setRuleFixedAmount(String(p.fixedAmount));
-    if (p.percentage !== undefined) setRulePercentage(String(p.percentage));
+    if (p.fixedAmount !== undefined && p.fixedAmount !== null) setRuleFixedAmount(String(p.fixedAmount));
+    else setRuleFixedAmount('');
+    if (p.percentage !== undefined && p.percentage !== null) setRulePercentage(String(p.percentage));
+    else setRulePercentage('');
     if (p.baseCode) setRuleBaseCode(p.baseCode);
     if (p.formula) setRuleFormula(p.formula);
     if (p.conditionType) setRuleConditionType(p.conditionType);
-    if (p.conditionValue !== undefined) setRuleConditionValue(String(p.conditionValue));
+    if (p.conditionValue !== undefined && p.conditionValue !== null) setRuleConditionValue(String(p.conditionValue));
     if (p.roundingRule) setRuleRounding(p.roundingRule);
   };
 
@@ -138,9 +140,10 @@ export default function SalaryStructureCreate() {
     setRuleCode(rule.code);
     setRuleCategory(rule.category);
     setRuleSequence(rule.sequence);
-    setRuleCalculationType(rule.calculationType);
+    const isBasicRule = rule.code === 'BASIC' || (rule.calculationType as string) === 'EMPLOYEE_BASIC';
+    setRuleCalculationType(isBasicRule ? 'EMPLOYEE_BASIC' : rule.calculationType);
     setRuleFixedAmount(
-      rule.fixedAmount !== null && rule.fixedAmount !== undefined
+      !isBasicRule && rule.fixedAmount !== null && rule.fixedAmount !== undefined
         ? String(rule.fixedAmount)
         : ''
     );
@@ -183,17 +186,20 @@ export default function SalaryStructureCreate() {
       return;
     }
 
-    if (ruleCalculationType === 'FIXED_AMOUNT' && !ruleFixedAmount) {
+    const isBasicRule = ruleCode.trim().toUpperCase() === 'BASIC' || ruleCalculationType === 'EMPLOYEE_BASIC';
+    const effectiveCalcType = isBasicRule ? 'EMPLOYEE_BASIC' : ruleCalculationType;
+
+    if (effectiveCalcType === 'FIXED_AMOUNT' && !ruleFixedAmount) {
       setRuleFormError('Fixed Amount (₹) is required for FIXED_AMOUNT type.');
       return;
     }
 
-    if (ruleCalculationType === 'PERCENTAGE' && !rulePercentage) {
+    if (effectiveCalcType === 'PERCENTAGE' && !rulePercentage) {
       setRuleFormError('Percentage (%) is required for PERCENTAGE type.');
       return;
     }
 
-    if (ruleCalculationType === 'FORMULA' && !ruleFormula.trim()) {
+    if (effectiveCalcType === 'FORMULA' && !ruleFormula.trim()) {
       setRuleFormError('Formula expression is required for FORMULA type.');
       return;
     }
@@ -210,11 +216,11 @@ export default function SalaryStructureCreate() {
       code: ruleCode.trim().toUpperCase(),
       category: ruleCategory,
       sequence: Number(ruleSequence),
-      calculationType: ruleCalculationType,
-      fixedAmount: ruleCalculationType === 'FIXED_AMOUNT' ? Number(ruleFixedAmount) : null,
-      percentage: ruleCalculationType === 'PERCENTAGE' ? numericPercentage : null,
-      baseCode: ruleCalculationType === 'PERCENTAGE' ? ruleBaseCode || 'BASIC' : null,
-      formula: ruleCalculationType === 'FORMULA' ? ruleFormula.trim() : null,
+      calculationType: effectiveCalcType,
+      fixedAmount: effectiveCalcType === 'FIXED_AMOUNT' ? Number(ruleFixedAmount) : null,
+      percentage: effectiveCalcType === 'PERCENTAGE' ? numericPercentage : null,
+      baseCode: effectiveCalcType === 'PERCENTAGE' ? ruleBaseCode || 'BASIC' : null,
+      formula: effectiveCalcType === 'FORMULA' ? ruleFormula.trim() : null,
       conditionType: ruleConditionType,
       conditionValue: ruleConditionValue ? Number(ruleConditionValue) : null,
       condition: ruleCustomCondition.trim() || ruleConditionType,
@@ -699,25 +705,37 @@ export default function SalaryStructureCreate() {
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Calculation Type *
                   </label>
-                  <div className="flex items-center gap-4">
-                    {(['FIXED_AMOUNT', 'PERCENTAGE', 'FORMULA'] as RuleCalculationType[]).map((type) => (
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {(['FIXED_AMOUNT', 'PERCENTAGE', 'FORMULA', 'EMPLOYEE_BASIC'] as RuleCalculationType[]).map((type) => (
                       <label key={type} className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
                         <input
                           type="radio"
                           name="calcType"
                           value={type}
-                          checked={ruleCalculationType === type}
+                          checked={ruleCalculationType === type || (ruleCode === 'BASIC' && type === 'EMPLOYEE_BASIC')}
                           onChange={() => setRuleCalculationType(type)}
                           className="text-indigo-600 focus:ring-indigo-500"
                         />
-                        {type}
+                        {type === 'EMPLOYEE_BASIC' ? 'Employee Basic Salary (From Contract)' : type}
                       </label>
                     ))}
                   </div>
                 </div>
 
+                {/* EMPLOYEE_BASIC Informational Banner */}
+                {(ruleCalculationType === 'EMPLOYEE_BASIC' || ruleCode === 'BASIC') && (
+                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-900 font-medium space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <span>ℹ️ Dynamic Employee Basic Salary</span>
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-indigo-800">
+                      Basic Salary is employee-specific and automatically derived from each employee's active contract/salary record in the database during payroll processing. No manual amount entry is required.
+                    </p>
+                  </div>
+                )}
+
                 {/* FIXED_AMOUNT Input */}
-                {ruleCalculationType === 'FIXED_AMOUNT' && (
+                {ruleCalculationType === 'FIXED_AMOUNT' && ruleCode !== 'BASIC' && (
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">
                       Fixed Amount (₹) *

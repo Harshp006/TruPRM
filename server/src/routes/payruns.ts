@@ -10,9 +10,6 @@ const router = Router();
 router.use(authenticate);
 
 // ─── Helper: find the contract whose date range CONTAINS the period ──────────
-// A contract is eligible if:
-//   contract.startDate <= periodStart  AND  (contract.endDate IS NULL OR contract.endDate >= periodEnd)
-// We never just grab "the latest ACTIVE" — we check date containment explicitly.
 async function findContractForPeriod(employeeId: string, periodStart: Date, periodEnd: Date) {
   return prisma.contract.findFirst({
     where: {
@@ -75,7 +72,6 @@ router.get(
         orderBy: { startDate: 'desc' },
       });
 
-      // Deduplicate — take the most recent covering contract per employee
       const seen = new Set<string>();
       const eligible: any[] = [];
 
@@ -169,13 +165,13 @@ router.get(
   }
 );
 
-// POST /api/payruns — Wizard Step 2: Create payrun + draft payslips in one transaction
+// POST /api/payruns — Create payrun with selected employee IDs
 router.post(
   '/',
   authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { name, periodStart, periodEnd, notes, employeeIds } = req.body;
+      const { name, periodStart, periodEnd, notes, employeeIds, salaryStructureId } = req.body;
 
       if (!name || !periodStart || !periodEnd) {
         res.status(400).json({ message: 'name, periodStart, and periodEnd are required' });
@@ -226,13 +222,15 @@ router.post(
               payrunId: pr.id,
               employeeId: empId,
               state: PayslipState.DRAFT,
-              salaryStructureId: contract?.salaryStructureId ?? null,
+              salaryStructureId: salaryStructureId || contract?.salaryStructureId || null,
               periodStart: pStart,
               periodEnd: pEnd,
               basicWage: contract ? Number(contract.wageAmount) : 0,
               grossWage: 0,
               netWage: 0,
               totalDeductions: 0,
+              status: 'DRAFT',
+              statusMessage: null,
             },
           });
         }
@@ -255,6 +253,104 @@ router.post(
   }
 );
 
+// Helper function: Evaluate Pre-Check per employee & persist status in DB
+async function evaluatePayrunPrecheck(payrunId: string) {
+  const payrun = await prisma.payrun.findUnique({
+    where: { id: payrunId },
+    include: {
+      payslips: {
+        include: {
+          employee: true,
+          salaryStructure: true,
+        },
+      },
+    },
+  });
+
+  if (!payrun) return { warnings: [], payrun: null };
+
+  const warnings: Array<{ employeeId: string; employeeName: string; reason: string }> = [];
+
+  for (const payslip of payrun.payslips) {
+    const empName = `${payslip.employee.firstName} ${payslip.employee.lastName}`;
+    const contract = await prisma.contract.findFirst({
+      where: {
+        employeeId: payslip.employeeId,
+        status: 'ACTIVE',
+      },
+      include: { salaryStructure: true },
+      orderBy: { startDate: 'desc' },
+    });
+
+    if (!contract) {
+      const reason = `Employee ${empName} does not have an active contract.`;
+      warnings.push({ employeeId: payslip.employeeId, employeeName: empName, reason });
+      await prisma.payslip.update({
+        where: { id: payslip.id },
+        data: { status: 'FAILED', statusMessage: reason },
+      });
+      continue;
+    }
+
+    const structure = contract.salaryStructure || payslip.salaryStructure;
+    if (!structure) {
+      const reason = `Employee ${empName} does not have an assigned salary structure.`;
+      warnings.push({ employeeId: payslip.employeeId, employeeName: empName, reason });
+      await prisma.payslip.update({
+        where: { id: payslip.id },
+        data: { status: 'FAILED', statusMessage: reason },
+      });
+      continue;
+    }
+
+    await prisma.payslip.update({
+      where: { id: payslip.id },
+      data: {
+        status: 'PASSED',
+        statusMessage: null,
+        salaryStructureId: structure.id,
+        basicWage: Number(contract.wageAmount || 0),
+      },
+    });
+  }
+
+  const updatedPayrun = await prisma.payrun.findUnique({
+    where: { id: payrunId },
+    include: {
+      payslips: {
+        include: { employee: true, salaryStructure: true, lines: { orderBy: { createdAt: 'asc' } } },
+      },
+    },
+  });
+
+  return { warnings, payrun: updatedPayrun };
+}
+
+// POST /api/payruns/:id/validate — Pre-Computation Check
+router.post(
+  '/:id/validate',
+  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const result = await evaluatePayrunPrecheck(id);
+      if (!result.payrun) {
+        res.status(404).json({ message: 'Pay run not found' });
+        return;
+      }
+      res.json({
+        message: 'Pre-computation check completed',
+        warningsCount: result.warnings.length,
+        warnings: result.warnings,
+        payrun: result.payrun,
+      });
+    } catch (err) {
+      console.error('Validate payrun error:', err);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
 // POST /api/payruns/:id/compute — DRAFT → COMPUTED
 router.post(
   '/:id/compute',
@@ -262,9 +358,13 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
-      const payrun = await prisma.payrun.findUnique({
+      let payrun = await prisma.payrun.findUnique({
         where: { id },
-        include: { payslips: { include: { employee: true } } },
+        include: {
+          payslips: {
+            include: { employee: true, salaryStructure: true },
+          },
+        },
       });
 
       if (!payrun) {
@@ -272,21 +372,55 @@ router.post(
         return;
       }
 
-      if (payrun.state !== PayrunState.DRAFT) {
-        res.status(400).json({ message: `Compute only allowed on DRAFT pay runs (current: ${payrun.state})` });
+      const eligiblePayslips = payrun.payslips.filter(
+        (p) => p.status === 'PASSED' || p.status === 'COMPUTED'
+      );
+      const skippedPayslips = payrun.payslips.filter(
+        (p) => p.status === 'FAILED'
+      );
+
+      if (eligiblePayslips.length === 0) {
+        res.status(400).json({
+          message: 'No eligible employees passed pre-computation check. Please run Pre-Computation Check first to evaluate eligible employees.',
+          skippedCount: skippedPayslips.length,
+          computedCount: 0,
+        });
         return;
       }
 
-      for (const payslip of payrun.payslips) {
-        // CRITICAL: Date containment — find the contract that COVERS this period
-        const contract = await findContractForPeriod(payslip.employeeId, payrun.periodStart, payrun.periodEnd);
+      const results: Array<{
+        employeeId: string;
+        employeeName: string;
+        status: 'COMPUTED' | 'FAILED';
+        message: string;
+      }> = [];
 
-        if (!contract || !contract.salaryStructure) {
-          continue; // No valid contract for this period; payslip stays DRAFT
+      for (const payslip of eligiblePayslips) {
+        const empName = `${payslip.employee.firstName} ${payslip.employee.lastName}`;
+        const contract = await prisma.contract.findFirst({
+          where: { employeeId: payslip.employeeId, status: 'ACTIVE' },
+          include: {
+            salaryStructure: {
+              include: {
+                rules: {
+                  orderBy: { sequence: 'asc' },
+                },
+              },
+            },
+          },
+          orderBy: { startDate: 'desc' },
+        });
+
+        const structure = contract?.salaryStructure || payslip.salaryStructure;
+        if (!structure) {
+          results.push({
+            employeeId: payslip.employeeId,
+            employeeName: empName,
+            status: 'FAILED',
+            message: 'No Salary Structure assigned',
+          });
+          continue;
         }
-
-        const structure = contract.salaryStructure;
-        const wageAmount = Number(contract.wageAmount);
 
         const unpaidLeaveDays = await calculateUnpaidLeaveDays(
           payslip.employeeId,
@@ -294,9 +428,11 @@ router.post(
           payrun.periodEnd
         );
 
+        const wageAmount = contract ? Number(contract.wageAmount) : Number(payslip.basicWage || 0);
+
         const context = {
           contractWage: wageAmount,
-          BASIC: wageAmount, // pre-seed BASIC so % rules referencing BASIC work without a dedicated FIXED rule
+          BASIC: wageAmount,
           dailySalary: wageAmount > 0 ? wageAmount / 30 : 0,
           unpaidLeaveDays,
           overtimeHours: 0,
@@ -317,6 +453,8 @@ router.post(
               grossWage: calcResult.grossSalary,
               totalDeductions: calcResult.totalDeductions,
               netWage: calcResult.netSalary,
+              status: 'COMPUTED',
+              statusMessage: null,
               lines: {
                 create: calcResult.lines.map((l) => ({
                   name: l.name,
@@ -330,9 +468,26 @@ router.post(
             },
           });
         });
+
+        results.push({
+          employeeId: payslip.employeeId,
+          employeeName: empName,
+          status: 'COMPUTED',
+          message: 'Payroll computed successfully',
+        });
       }
 
-      const updated = await prisma.payrun.update({
+      for (const payslip of skippedPayslips) {
+        const empName = `${payslip.employee.firstName} ${payslip.employee.lastName}`;
+        results.push({
+          employeeId: payslip.employeeId,
+          employeeName: empName,
+          status: 'FAILED',
+          message: payslip.statusMessage || 'Pre-check failed',
+        });
+      }
+
+      const updatedPayrun = await prisma.payrun.update({
         where: { id },
         data: { state: PayrunState.COMPUTED },
         include: {
@@ -342,7 +497,14 @@ router.post(
         },
       });
 
-      res.json(updated);
+      res.json({
+        message: 'Payroll computation complete',
+        total: payrun.payslips.length,
+        computedCount: eligiblePayslips.length,
+        skippedCount: skippedPayslips.length,
+        results,
+        payrun: updatedPayrun,
+      });
     } catch (err) {
       console.error('Compute payrun error:', err);
       res.status(500).json({ message: 'Internal server error' });
@@ -350,21 +512,23 @@ router.post(
   }
 );
 
-// POST /api/payruns/:id/validate — COMPUTED → VALIDATED
-// Checks duplicates and computation completeness. Transitions only if no ERRORs.
-router.post(
-  '/:id/validate',
+// PUT /api/payruns/:id/state — State Transition / Lock
+router.put(
+  '/:id/state',
   authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
+      const { state } = req.body;
+
+      if (!state) {
+        res.status(400).json({ message: 'Invalid payrun state' });
+        return;
+      }
+
       const payrun = await prisma.payrun.findUnique({
         where: { id },
-        include: {
-          payslips: {
-            include: { employee: true, salaryStructure: true },
-          },
-        },
+        include: { payslips: true },
       });
 
       if (!payrun) {
@@ -372,189 +536,57 @@ router.post(
         return;
       }
 
-      if (payrun.state !== PayrunState.COMPUTED) {
-        res.status(400).json({ message: `Validate only allowed on COMPUTED pay runs (current: ${payrun.state})` });
-        return;
-      }
+      if (state === 'DONE' || state === PayrunState.PAID) {
+        const lockable = payrun.payslips.filter(
+          (p) => p.status === 'COMPUTED' || p.status === 'LOCKED'
+        );
 
-      const warnings: Array<{
-        employeeId: string;
-        employeeName: string;
-        severity: 'ERROR' | 'WARNING';
-        code: string;
-        message: string;
-      }> = [];
-
-      for (const payslip of payrun.payslips) {
-        const empName = `${payslip.employee.firstName} ${payslip.employee.lastName}`;
-        const empId = payslip.employeeId;
-        const ps = payslip as any;
-
-        // 1. Not computed (stayed DRAFT — no valid contract for period)
-        if (ps.state === 'DRAFT') {
-          warnings.push({
-            employeeId: empId, employeeName: empName, severity: 'ERROR',
-            code: 'NOT_COMPUTED',
-            message: `${empName}'s payslip was not computed — no contract covering this period.`,
+        if (lockable.length === 0) {
+          res.status(400).json({
+            message: 'No computed payslips available to approve and lock. Run payroll computation for eligible employees first.',
           });
+          return;
         }
 
-        // 2. No salary structure
-        if (!payslip.salaryStructure) {
-          warnings.push({
-            employeeId: empId, employeeName: empName, severity: 'ERROR',
-            code: 'NO_STRUCTURE',
-            message: `${empName} has no salary structure assigned.`,
-          });
-        }
-
-        // 3. Duplicate paid payslip for same employee + overlapping period
-        const duplicate = await prisma.payslip.findFirst({
-          where: {
-            employeeId: empId,
-            id: { not: payslip.id },
-            periodStart: { lte: payrun.periodEnd },
-            periodEnd: { gte: payrun.periodStart },
-            payrun: { state: PayrunState.PAID },
-          },
-        });
-        if (duplicate) {
-          warnings.push({
-            employeeId: empId, employeeName: empName, severity: 'ERROR',
-            code: 'DUPLICATE_PAYSLIP',
-            message: `${empName} already has a paid payslip for an overlapping period.`,
-          });
-        }
-
-        // 4. Zero net wage warning
-        if (!payslip.netWage || Number(payslip.netWage) === 0) {
-          warnings.push({
-            employeeId: empId, employeeName: empName, severity: 'WARNING',
-            code: 'ZERO_NET_WAGE',
-            message: `${empName} has a net wage of ₹0. Verify salary structure rules.`,
+        for (const p of lockable) {
+          await prisma.payslip.update({
+            where: { id: p.id },
+            data: { status: 'LOCKED' },
           });
         }
       }
 
-      const hasErrors = warnings.some((w) => w.severity === 'ERROR');
+      const targetState = state === 'DONE' ? PayrunState.PAID : (state as PayrunState);
 
-      if (!hasErrors) {
-        await prisma.$transaction(async (tx) => {
-          await tx.payslip.updateMany({ where: { payrunId: id }, data: { state: PayslipState.VALIDATED } });
-          await tx.payrun.update({ where: { id }, data: { state: PayrunState.VALIDATED } });
-        });
-      }
-
-      const updatedPayrun = await prisma.payrun.findUnique({
+      const updated = await prisma.payrun.update({
         where: { id },
+        data: { state: targetState },
         include: {
           payslips: {
-            include: { employee: true, salaryStructure: true, lines: { orderBy: { createdAt: 'asc' } } },
-          },
-        },
-      });
-
-      res.json({ payrun: updatedPayrun, valid: !hasErrors, transitioned: !hasErrors, warnings });
-    } catch (err) {
-      console.error('Validate payrun error:', err);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-);
-
-// POST /api/payruns/:id/mark-paid — VALIDATED → PAID (immutable lock)
-router.post(
-  '/:id/mark-paid',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN'),
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const id = req.params.id as string;
-      const payrun = await prisma.payrun.findUnique({ where: { id } });
-
-      if (!payrun) {
-        res.status(404).json({ message: 'Pay run not found' });
-        return;
-      }
-
-      if (payrun.state !== PayrunState.VALIDATED) {
-        res.status(400).json({
-          message: `Mark Paid requires VALIDATED state (current: ${payrun.state}). Run Validate first.`,
-        });
-        return;
-      }
-
-      const updated = await prisma.$transaction(async (tx) => {
-        await tx.payslip.updateMany({ where: { payrunId: id }, data: { state: PayslipState.PAID } });
-        return tx.payrun.update({
-          where: { id },
-          data: { state: PayrunState.PAID },
-          include: {
-            payslips: {
-              include: { employee: true, salaryStructure: true, lines: { orderBy: { createdAt: 'asc' } } },
+            include: {
+              employee: true,
+              salaryStructure: true,
+              lines: { orderBy: { createdAt: 'asc' } },
             },
           },
-        });
+        },
       });
 
       res.json(updated);
     } catch (err) {
-      console.error('Mark paid error:', err);
+      console.error('Update payrun state error:', err);
       res.status(500).json({ message: 'Internal server error' });
     }
   }
 );
 
-// POST /api/payruns/:id/cancel — DRAFT or COMPUTED only
-router.post(
-  '/:id/cancel',
-  authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const id = req.params.id as string;
-      const payrun = await prisma.payrun.findUnique({ where: { id } });
-
-      if (!payrun) {
-        res.status(404).json({ message: 'Pay run not found' });
-        return;
-      }
-
-      if (payrun.state === PayrunState.PAID) {
-        res.status(400).json({ message: 'Cannot cancel a PAID pay run.' });
-        return;
-      }
-      if (payrun.state === PayrunState.CANCELLED) {
-        res.status(400).json({ message: 'Pay run is already cancelled.' });
-        return;
-      }
-
-      const updated = await prisma.payrun.update({ where: { id }, data: { state: PayrunState.CANCELLED } });
-      res.json(updated);
-    } catch (err) {
-      console.error('Cancel payrun error:', err);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-);
-
-// DELETE /api/payruns/:id — DRAFT only
+// DELETE /api/payruns/:id
 router.delete(
   '/:id',
   authorize('ADMIN', 'HR_PAYROLL_ADMIN', 'HR_PAYROLL_USER'),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const id = req.params.id as string;
-      const existing = await prisma.payrun.findUnique({ where: { id } });
-
-      if (!existing) {
-        res.status(404).json({ message: 'Pay run not found' });
-        return;
-      }
-
-      if (existing.state !== PayrunState.DRAFT) {
-        res.status(400).json({ message: 'Only DRAFT pay runs can be deleted.' });
-        return;
-      }
-
       await prisma.payrun.delete({ where: { id } });
       res.json({ message: 'Pay run deleted successfully' });
     } catch (err) {
@@ -564,61 +596,4 @@ router.delete(
   }
 );
 
-// POST /api/payruns/:id/send-payslips
-router.post(
-  '/:id/send-payslips',
-  authorize('HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN', 'ADMIN'),
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const payrun = await prisma.payrun.findUnique({
-        where: { id },
-        include: {
-          payslips: {
-            include: {
-              employee: {
-                include: { user: true },
-              },
-            },
-          },
-        },
-      });
-
-      if (!payrun) {
-        res.status(404).json({ message: 'Pay run not found' });
-        return;
-      }
-
-      if (payrun.state !== PayrunState.PAID) {
-        res.status(400).json({ message: 'Only PAID pay runs can have payslips distributed.' });
-        return;
-      }
-
-      // Mock Email Logic (Standard Output Logging)
-      console.log(`\n========================================`);
-      console.log(`[EMAIL DISPATCH] Starting bulk distribution for Pay Run: ${payrun.name}`);
-      console.log(`========================================`);
-
-      let emailsSent = 0;
-      payrun.payslips.forEach((payslip) => {
-        const emp = payslip.employee;
-        const email = emp.user?.email || `${emp.employeeNumber}@truprm.com`; // Fallback if no user
-        console.log(`--> Sending email to: ${email}`);
-        console.log(`    Subject: Your Payslip for ${new Date(payrun.periodStart).toLocaleDateString()} to ${new Date(payrun.periodEnd).toLocaleDateString()}`);
-        console.log(`    Attachment: payslip-${emp.employeeNumber}-${payrun.periodStart}.pdf`);
-        emailsSent++;
-      });
-
-      console.log(`========================================`);
-      console.log(`[EMAIL DISPATCH] Successfully sent ${emailsSent} emails.\n`);
-
-      res.json({ message: `Successfully sent ${emailsSent} payslips via email.` });
-    } catch (err) {
-      console.error('Send payslips error:', err);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-);
-
 export default router;
-

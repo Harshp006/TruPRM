@@ -51,6 +51,8 @@ const AppRoutes: React.FC = () => {
 
           {/* Schedules, Attendance & Time-off */}
           <Route path="/attendance" element={<AttendancePage />} />
+          <Route path="/attendance/:attendanceId" element={<AttendancePage />} />
+          <Route path="/employees/:employeeId/attendance" element={<AttendancePage />} />
           <Route path="/time-off" element={<TimeOffPage />} />
           <Route path="/timeoff" element={<TimeOffPage />} />
 

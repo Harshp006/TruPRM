@@ -103,9 +103,9 @@ async function main() {
               code: 'BASIC',
               category: SalaryRuleCategory.EARNING,
               sequence: 1,
-              calculationType: RuleCalculationType.FIXED_AMOUNT,
-              fixedAmount: 50000,
-              amountFixed: 50000,
+              calculationType: RuleCalculationType.EMPLOYEE_BASIC,
+              fixedAmount: null,
+              amountFixed: null,
               status: RuleStatus.ACTIVE,
             },
             {
@@ -176,6 +176,24 @@ async function main() {
       },
     });
     console.log(`✓ Salary structure created: ${structure.name} (${structure.code})`);
+  }
+
+  // Ensure Employee profile for HR Payroll Manager
+  let pmEmp = await prisma.employee.findUnique({ where: { userId: payrollManager.id } });
+  if (!pmEmp) {
+    pmEmp = await prisma.employee.create({
+      data: {
+        userId: payrollManager.id,
+        employeeNumber: 'MGR001',
+        firstName: 'Sarah',
+        lastName: 'Conner',
+        jobTitle: 'HR Payroll Manager',
+        department: 'Payroll & HR Operations',
+        hireDate: new Date('2024-01-01'),
+        color: '#4f46e5',
+      },
+    });
+    console.log(`✓ HR Payroll Manager employee profile created.`);
   }
 
   // Ensure Employee profile & Contract

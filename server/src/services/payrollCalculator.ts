@@ -177,7 +177,10 @@ export function calculateSalary(
     let baseAmount = 0;
     let pctVal = 0;
 
-    if (rule.calculationType === 'FIXED_AMOUNT') {
+    if ((rule.calculationType as string) === 'EMPLOYEE_BASIC' || (rule.code === 'BASIC' && (rule.fixedAmount === null || rule.fixedAmount === undefined))) {
+      rawAmount = context.contractWage ?? context.basicWage ?? 0;
+      baseAmount = rawAmount;
+    } else if (rule.calculationType === 'FIXED_AMOUNT') {
       const fixed = rule.fixedAmount ?? rule.amountFixed;
       rawAmount = fixed !== null && fixed !== undefined ? Number(fixed) : 0;
     } else if (rule.calculationType === 'PERCENTAGE') {

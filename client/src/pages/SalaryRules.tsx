@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchSalaryRules, type SalaryRule } from '../api/payroll';
+import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
 
 export default function SalaryRulesPage() {
   const { user } = useAuth();
@@ -9,7 +10,8 @@ export default function SalaryRulesPage() {
   const [rules, setRules] = useState<SalaryRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
+  const [filterCategory, setFilterCategory] = useState('ALL');
+  const [sortOption, setSortOption] = useState('SEQ_ASC');
 
   const loadData = async () => {
     setLoading(true);
@@ -27,14 +29,38 @@ export default function SalaryRulesPage() {
     loadData();
   }, []);
 
-  const filtered = rules.filter((r) => {
-    const matchSearch =
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      (r.salaryStructure?.name && r.salaryStructure.name.toLowerCase().includes(search.toLowerCase()));
-    const matchCategory = !filterCategory || r.category === filterCategory;
-    return matchSearch && matchCategory;
-  });
+  const filtered = useMemo(() => {
+    let result = rules.filter((r) => {
+      const matchSearch =
+        r.name.toLowerCase().includes(search.toLowerCase()) ||
+        r.code.toLowerCase().includes(search.toLowerCase()) ||
+        (r.salaryStructure?.name && r.salaryStructure.name.toLowerCase().includes(search.toLowerCase()));
+      const matchCategory = filterCategory === 'ALL' || !filterCategory || r.category === filterCategory;
+      return matchSearch && matchCategory;
+    });
+
+    result.sort((a, b) => {
+      if (sortOption === 'SEQ_ASC') return (a.sequence || 0) - (b.sequence || 0);
+      if (sortOption === 'SEQ_DESC') return (b.sequence || 0) - (a.sequence || 0);
+      if (sortOption === 'NAME_ASC') return a.name.localeCompare(b.name);
+      if (sortOption === 'NAME_DESC') return b.name.localeCompare(a.name);
+      return 0;
+    });
+
+    return result;
+  }, [rules, search, filterCategory, sortOption]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
+    if (filterCategory !== 'ALL' && filterCategory !== '') {
+      chips.push({
+        label: `Category: ${filterCategory}`,
+        value: filterCategory,
+        onClear: () => setFilterCategory('ALL'),
+      });
+    }
+    return chips;
+  }, [filterCategory]);
 
   return (
     <div className="space-y-6">
@@ -54,32 +80,43 @@ export default function SalaryRulesPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex gap-4 flex-1 max-w-xl">
-          <input
-            type="text"
-            placeholder="Search rules by name, code, or structure..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          />
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-48 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          >
-            <option value="">All Categories</option>
-            <option value="BASIC">Basic</option>
-            <option value="ALLOWANCE">Allowance</option>
-            <option value="DEDUCTION">Deduction</option>
-            <option value="GROSS">Gross</option>
-            <option value="NET">Net</option>
-          </select>
-        </div>
-        <span className="text-xs text-slate-400">
-          {!canEdit ? 'Read-only view for HR Payroll User' : 'Edit Mode'}
-        </span>
-      </div>
+      <SearchFilterBar
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search rules by name, code, or structure..."
+        filters={[
+          {
+            key: 'category',
+            label: 'Category',
+            value: filterCategory,
+            options: [
+              { label: 'All Categories', value: 'ALL' },
+              { label: 'Basic', value: 'BASIC' },
+              { label: 'Allowance', value: 'ALLOWANCE' },
+              { label: 'Deduction', value: 'DEDUCTION' },
+              { label: 'Gross', value: 'GROSS' },
+              { label: 'Net', value: 'NET' },
+            ],
+            onChange: setFilterCategory,
+          },
+        ]}
+        sortOption={sortOption}
+        onSortChange={setSortOption}
+        sortOptions={[
+          { label: 'Sequence (Low to High)', value: 'SEQ_ASC' },
+          { label: 'Sequence (High to Low)', value: 'SEQ_DESC' },
+          { label: 'Name (A - Z)', value: 'NAME_ASC' },
+          { label: 'Name (Z - A)', value: 'NAME_DESC' },
+        ]}
+        activeFilterChips={activeFilterChips}
+        onClearAll={() => {
+          setSearch('');
+          setFilterCategory('ALL');
+        }}
+        resultsCount={filtered.length}
+        totalCount={rules.length}
+        unitName="rules"
+      />
 
       {/* Rules Table */}
       {loading ? (
@@ -87,9 +124,19 @@ export default function SalaryRulesPage() {
           Loading salary rules...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white p-12 text-center text-slate-500 rounded-xl border border-slate-200">
-          No salary rules found matching search criteria.
-        </div>
+        <EmptyState
+          title="No salary rules found"
+          description={
+            search || filterCategory !== 'ALL'
+              ? 'No rules match your selected filters. Try clearing or adjusting search terms.'
+              : 'No salary rules are available.'
+          }
+          hasActiveFilters={Boolean(search || filterCategory !== 'ALL')}
+          onClearFilters={() => {
+            setSearch('');
+            setFilterCategory('ALL');
+          }}
+        />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <table className="min-w-full divide-y divide-slate-200">
@@ -141,7 +188,7 @@ export default function SalaryRulesPage() {
                     {r.amountPercentage
                       ? `${Number(r.amountPercentage) * 100}%`
                       : r.amountFixed
-                      ? `$${Number(r.amountFixed).toLocaleString()}`
+                      ? `₹${Number(r.amountFixed).toLocaleString('en-IN')}`
                       : '—'}
                   </td>
                   <td className="px-5 py-4 text-sm">

@@ -84,19 +84,23 @@ model ScheduleLine {
 }
 
 model Attendance {
-  id         String           @id @default(cuid())
-  employeeId String
-  date       DateTime         @db.Date
-  checkIn    DateTime?
-  checkOut   DateTime?
-  workedHours Float?
-  status     AttendanceStatus @default(PRESENT)
-  notes      String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id            String           @id @default(cuid())
+  employeeId    String
+  date          DateTime         @db.Date
+  checkIn       DateTime?
+  checkOut      DateTime?
+  workedHours   Float?
+  overtimeHours Float?           @default(0)
+  status        AttendanceStatus @default(PRESENT)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  employee      Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@index([employeeId, date])
 }
 
 model TimeOffType {
@@ -216,6 +220,8 @@ model Payslip {
   grossWage         Decimal?         @db.Decimal(12, 2)
   netWage           Decimal?         @db.Decimal(12, 2)
   totalDeductions   Decimal?         @db.Decimal(12, 2)
+  status            PayslipStatus    @default(DRAFT)
+  statusMessage     String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   employee          Employee         @relation(fields: [employeeId], references: [id])
@@ -300,6 +306,7 @@ enum RuleCalculationType {
   FIXED_AMOUNT
   PERCENTAGE
   FORMULA
+  EMPLOYEE_BASIC
 }
 
 enum SalaryRuleCategory {
@@ -314,6 +321,7 @@ enum SalaryRuleCategory {
 
 enum PayrunState {
   DRAFT
+  DONE
   COMPUTED
   VALIDATED
   PAID
@@ -325,4 +333,12 @@ enum PayslipState {
   COMPUTED
   VALIDATED
   PAID
+}
+
+enum PayslipStatus {
+  DRAFT
+  PASSED
+  FAILED
+  COMPUTED
+  LOCKED
 }

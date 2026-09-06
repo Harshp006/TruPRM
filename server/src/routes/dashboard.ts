@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, PayrunState } from '@prisma/client';
 import { authenticate } from '../middleware/authenticate';
 
 const router = Router();
@@ -189,9 +189,9 @@ router.get('/payroll-manager', authenticate, async (req: Request, res: Response)
     // 4. PAYSLIP STATUS & PAYROLL ALERTS
     const statusSplit = {
       Paid: filteredPayslips.length,
-      Done: payruns.filter((pr) => pr.state === 'DONE').length,
-      Draft: payruns.filter((pr) => pr.state === 'DRAFT').length,
-      Pending: payruns.filter((pr) => pr.state === 'CANCELLED').length,
+      Done: payruns.filter((pr) => pr.state === PayrunState.PAID || (pr.state as string) === 'DONE').length,
+      Draft: payruns.filter((pr) => pr.state === PayrunState.DRAFT).length,
+      Pending: payruns.filter((pr) => pr.state === PayrunState.CANCELLED).length,
     };
 
     const alerts: string[] = [];
