@@ -115,4 +115,82 @@ router.post('/change-password', authenticate, async (req: Request, res: Response
   }
 });
 
+import crypto from 'crypto';
+
+// POST /auth/forgot-password
+router.post('/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ message: 'Email is required' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Don't leak that user doesn't exist. Simulate success.
+      res.json({ message: 'If an account exists, a reset link was generated.', token: null });
+      return;
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpiry }
+    });
+
+    // In a real app, send email here. Since we don't have email setup,
+    // we return the token directly so the frontend can redirect to the reset page.
+    res.json({ 
+      message: 'If an account exists, a reset link was generated.', 
+      token: resetToken 
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// POST /auth/reset-password
+router.post('/reset-password', async (req: Request, res: Response): Promise<void> => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword || newPassword.length < 6) {
+    res.status(400).json({ message: 'Invalid token or password too short' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() } // not expired
+      }
+    });
+
+    if (!user) {
+      res.status(400).json({ message: 'Invalid or expired token' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        passwordHash, 
+        resetToken: null, 
+        resetTokenExpiry: null 
+      }
+    });
+
+    res.json({ message: 'Password has been successfully reset' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 export default router;

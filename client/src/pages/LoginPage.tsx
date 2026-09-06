@@ -15,14 +15,31 @@ export default function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
-    
+
     if (isForgotPassword) {
-      // Simulate password reset flow
       setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
+      try {
+        const res = await fetch('http://localhost:5000/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.message || 'Failed to send reset link');
+        }
+
         setResetSuccess(true);
-      }, 1000);
+        if (data.token) {
+          // In this simulation (without email server), navigate immediately with token
+          setTimeout(() => navigate(`/reset-password?token=${data.token}`), 1500);
+        }
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -50,18 +67,18 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans">
       {/* Left side - Hero Image Area */}
-      <div className="hidden md:flex md:w-1/2 lg:w-3/5 bg-white items-center justify-center p-8">
-        <img 
-          src="/images/hero-bg.png" 
-          alt="TruPRM Background" 
-          className="max-w-full max-h-full object-contain"
+      <div className="hidden md:flex md:w-1/2 lg:w-3/5 bg-white items-center justify-center">
+        <img
+          src="/images/hero-bg.png"
+          alt="TruPRM Background"
+          className="w-full h-full object-cover"
         />
       </div>
 
       {/* Right side - Login Form */}
       <div className="w-full md:w-1/2 lg:w-2/5 flex items-center justify-center p-8 bg-white shadow-[0_0_40px_rgba(0,0,0,0.05)] z-10">
         <div className="max-w-md w-full space-y-8">
-          
+
           {/* Logo Header */}
           <div className="text-center">
             <img src="/images/logo.png" alt="TruPRM Logo" className="h-16 mx-auto mb-4" />
@@ -69,8 +86,8 @@ export default function LoginPage() {
               {isForgotPassword ? 'Reset Password' : 'Welcome Back'}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              {isForgotPassword 
-                ? "Enter your email to receive a password reset link." 
+              {isForgotPassword
+                ? "Enter your email to receive a password reset link."
                 : "Please sign in to access your dashboard."}
             </p>
           </div>
@@ -81,7 +98,7 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
-            
+
             {resetSuccess && isForgotPassword && (
               <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm border border-green-200">
                 If an account exists, a reset link has been sent to your email.
@@ -139,12 +156,12 @@ export default function LoginPage() {
                 disabled={loading}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-all disabled:opacity-50"
               >
-                {loading 
-                  ? 'Processing...' 
+                {loading
+                  ? 'Processing...'
                   : (isForgotPassword ? 'Send Reset Link' : 'Sign in')}
               </button>
             </div>
-            
+
             {isForgotPassword && (
               <div className="text-center mt-4">
                 <button
@@ -160,12 +177,12 @@ export default function LoginPage() {
               </div>
             )}
           </form>
-          
+
           {/* Footer branding */}
           <div className="mt-10 pt-6 border-t border-slate-100 text-center">
-             <p className="text-xs text-slate-400">
-               &copy; {new Date().getFullYear()} TruPRM Government Systems. All Rights Reserved.
-             </p>
+            <p className="text-xs text-slate-400">
+              &copy; {new Date().getFullYear()} TruPRM Government Systems. All Rights Reserved.
+            </p>
           </div>
         </div>
       </div>

@@ -12,7 +12,7 @@ export default function SignupPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
-    
+
     // Simulate signup request
     setTimeout(() => {
       setLoading(false);
@@ -24,18 +24,18 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans">
       {/* Left side - Hero Image Area */}
-      <div className="hidden md:flex md:w-1/2 lg:w-3/5 bg-white items-center justify-center p-8">
-        <img 
-          src="/images/hero-bg.png" 
-          alt="TruPRM Background" 
-          className="max-w-full max-h-full object-contain"
+      <div className="hidden md:flex md:w-1/2 lg:w-3/5 bg-white items-center justify-center">
+        <img
+          src="/images/hero-bg.png"
+          alt="TruPRM Background"
+          className="w-full h-full object-cover"
         />
       </div>
 
       {/* Right side - Signup Form */}
       <div className="w-full md:w-1/2 lg:w-2/5 flex items-center justify-center p-8 bg-white shadow-[0_0_40px_rgba(0,0,0,0.05)] z-10">
         <div className="max-w-md w-full space-y-8">
-          
+
           <div className="text-center">
             <img src="/images/logo.png" alt="TruPRM Logo" className="h-16 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -110,7 +110,7 @@ export default function SignupPage() {
                 {loading ? 'Creating...' : 'Sign up'}
               </button>
             </div>
-            
+
             <div className="text-center mt-4">
               <Link
                 to="/login"
@@ -120,11 +120,11 @@ export default function SignupPage() {
               </Link>
             </div>
           </form>
-          
+
           <div className="mt-10 pt-6 border-t border-slate-100 text-center">
-             <p className="text-xs text-slate-400">
-               &copy; {new Date().getFullYear()} TruPRM Government Systems. All Rights Reserved.
-             </p>
+            <p className="text-xs text-slate-400">
+              &copy; {new Date().getFullYear()} TruPRM Government Systems. All Rights Reserved.
+            </p>
           </div>
         </div>
       </div>

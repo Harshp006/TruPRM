@@ -77,7 +77,7 @@ const TopNavbar: React.FC = () => {
         {/* Brand/Logo */}
         <div className="flex items-center gap-8 h-full">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-            <img src="/images/logo.png" alt="TruPRM" className="h-8 object-contain" />
+            <img src="/images/logo.png" alt="TruPRM" className="h-10 object-contain" />
           </div>
 
           {/* Navigation Links */}
@@ -226,6 +226,19 @@ const TopNavbar: React.FC = () => {
                   </div>
                 )}
               </div>
+            )}
+
+            {role !== 'EMPLOYEE' && (
+              <Link
+                to="/audit-logs"
+                className={`flex items-center px-4 h-full text-sm font-semibold transition-colors border-b-2 ${
+                  location.pathname.startsWith('/audit-logs')
+                    ? 'border-brand-secondary text-brand-secondary'
+                    : 'border-transparent text-slate-600 hover:text-black hover:bg-slate-50'
+                }`}
+              >
+                Audit Logs
+              </Link>
             )}
           </nav>
         </div>

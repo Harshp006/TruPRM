@@ -25,7 +25,7 @@ export default function ChangePasswordPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/auth/change-password', {
+      const res = await fetch('http://localhost:5000/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -49,72 +49,74 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div style={{ padding: '50px', backgroundColor: '#e8e8e8', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: '400px', backgroundColor: 'white', border: '2px solid #333', padding: '0' }}>
-        
-        <div style={{ backgroundColor: '#cc0000', color: 'white', padding: '10px', fontSize: '16px', fontWeight: 'bold', borderBottom: '2px solid #333' }}>
-          Action Required: Change Password
-        </div>
-        
-        <div style={{ padding: '20px' }}>
-          <div style={{ marginBottom: '20px', fontSize: '13px', color: '#333' }}>
-            <strong>System Notice:</strong> You must update your password before proceeding to the ERP modules.
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans">
+      {/* Left side - Hero Image Area */}
+      <div className="hidden md:flex md:w-1/2 lg:w-3/5 bg-white items-center justify-center">
+        <img
+          src="/images/hero-bg.png"
+          alt="TruPRM Background"
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Right side - Form Area */}
+      <div className="w-full md:w-1/2 lg:w-2/5 flex items-center justify-center p-8 bg-white shadow-[0_0_40px_rgba(0,0,0,0.05)] z-10">
+        <div className="max-w-md w-full space-y-8">
+          
+          <div className="text-center">
+            <img src="/images/logo.png" alt="TruPRM Logo" className="h-16 mx-auto mb-4" />
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+              Action Required
+            </h2>
+            <p className="mt-2 text-sm text-slate-500 font-medium">
+              You must update your default password to continue.
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {error && (
-              <div style={{ color: 'red', border: '1px solid red', padding: '8px', marginBottom: '15px', fontSize: '12px', backgroundColor: '#ffeeee' }}>
-                Error: {error}
+              <div className="bg-rose-50 text-rose-600 p-4 rounded-lg text-sm border border-rose-200 text-center">
+                {error}
               </div>
             )}
             
-            <table style={{ width: '100%', marginBottom: '15px', borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '8px 0', width: '40%', fontSize: '13px', fontWeight: 'bold' }}>New Password:</td>
-                  <td style={{ padding: '8px 0' }}>
-                    <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                      style={{ width: '100%', border: '1px solid #999', padding: '4px', fontSize: '13px' }}
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '8px 0', fontSize: '13px', fontWeight: 'bold' }}>Confirm Password:</td>
-                  <td style={{ padding: '8px 0' }}>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      style={{ width: '100%', border: '1px solid #999', padding: '4px', fontSize: '13px' }}
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style={{ borderTop: '1px solid #ccc', paddingTop: '15px', textAlign: 'right' }}>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  backgroundColor: '#e0e0e0',
-                  border: '1px outset #999',
-                  padding: '5px 15px',
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  color: 'black'
-                }}
-              >
-                {loading ? 'Processing...' : 'Change Password'}
-              </button>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="mt-1 block w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Confirm Password</label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-1 block w-full px-4 py-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                />
+              </div>
             </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-brand-primary to-brand-secondary hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-all disabled:opacity-50"
+            >
+              {loading ? 'Processing...' : 'Update Password'}
+            </button>
           </form>
+
+          <div className="mt-10 pt-6 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-400">
+              &copy; {new Date().getFullYear()} TruPRM Government Systems. All Rights Reserved.
+            </p>
+          </div>
         </div>
       </div>
     </div>

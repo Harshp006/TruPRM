@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 
 import LoginPage from '../pages/LoginPage';
 import SignupPage from '../pages/SignupPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
 import Dashboard from '../pages/Dashboard';
 import Employees from '../pages/Employees';
 import Contracts from '../pages/Contracts';
@@ -24,6 +25,7 @@ import Payslips from '../pages/Payslips';
 import PayrollHome from '../pages/PayrollHome';
 import Users from '../pages/Users';
 import Settings from '../pages/Settings';
+import AuditLogs from '../pages/AuditLogs';
 
 const RoleDefaultRedirect: React.FC = () => {
   const { user } = useAuth();
@@ -41,6 +43,7 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<ProtectedRoute />}>
         {/* Route accessible without Layout */}
         <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -145,10 +148,14 @@ const AppRoutes: React.FC = () => {
           {/* Payslips (Accessible to all authenticated users; Employees see own payslips) */}
           <Route path="/payslips" element={<Payslips />} />
 
-          {/* User Management (ADMIN ONLY) */}
+          {/* User Management & Audit (ADMIN & Managers) */}
           <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+          </Route>
+          
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN']} />}>
+            <Route path="/audit-logs" element={<AuditLogs />} />
           </Route>
         </Route>
       </Route>

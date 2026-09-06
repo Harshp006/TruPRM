@@ -59,6 +59,18 @@ export default function Dashboard() {
   const [endDate] = useState<string>('');
   const [department] = useState<string>('ALL');
 
+  // Handle custom date default initialization
+  useEffect(() => {
+    if (period === 'CUSTOM' && !startDate && !endDate) {
+      const today = new Date();
+      const lastMonth = new Date(today);
+      lastMonth.setMonth(today.getMonth() - 1);
+      
+      setEndDate(format(today, 'yyyy-MM-dd'));
+      setStartDate(format(lastMonth, 'yyyy-MM-dd'));
+    }
+  }, [period]);
+
   const fetchDashboard = async () => {
     try {
       setLoading(true);

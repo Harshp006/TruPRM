@@ -13,10 +13,26 @@ model User {
   passwordHash       String
   role               Role           @default(EMPLOYEE)
   mustChangePassword Boolean        @default(false)
+  resetToken         String?
+  resetTokenExpiry   DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   employee           Employee?
   notifications      Notification[]
+  auditLogs          AuditLog[]
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userEmail String?
+  action    String
+  model     String?
+  recordId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model Employee {

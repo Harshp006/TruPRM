@@ -221,7 +221,7 @@ router.get('/:id/pdf', async (req: Request, res: Response): Promise<void> => {
     const contentWidth = 525;
 
     // ─── 1. COMPANY HEADER (Black & White Corporate Style) ─────────────────
-    doc.fillColor('#000000').fontSize(15).font(fontBold).text('PEOPLEPAY360 / TRUPRM', startX, 35);
+    doc.fillColor('#000000').fontSize(15).font(fontBold).text('TruPRM', startX, 35);
     doc.fillColor('#333333').fontSize(9).font(fontBold).text(`PAYSLIP FOR THE MONTH OF ${monthName.toUpperCase()} ${yearNum}`, startX, 54);
     doc.fillColor('#666666').fontSize(7.5).font(fontRegular).text('Corporate HQ: Tech Park Phase II, Electronic City, Bangalore - 560100', startX, 67);
 
