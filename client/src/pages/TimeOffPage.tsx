@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Pagination from '../components/Pagination';
 import {
   fetchTimeOffRequests,
   fetchTimeOffAllocations,
@@ -69,6 +70,17 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // Pagination state
+  const [reqPage, setReqPage] = useState(1);
+  const [reqPageSize, setReqPageSize] = useState(10);
+  const [allocPage, setAllocPage] = useState(1);
+  const [allocPageSize, setAllocPageSize] = useState(10);
+
+  useEffect(() => {
+    setReqPage(1);
+    setAllocPage(1);
+  }, [search, activeEmployeeId]);
 
   // Modals for creation
   const [showReqModal, setShowReqModal] = useState(false);
@@ -580,7 +592,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                         </td>
                       </tr>
                     ) : (
-                      requests.map((r) => (
+                      requests.slice((reqPage - 1) * reqPageSize, reqPage * reqPageSize).map((r) => (
                         <tr
                           key={r.id}
                           className="hover:bg-slate-50 transition-colors cursor-pointer"
@@ -668,6 +680,14 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                   </tbody>
                 </table>
               </div>
+
+              <Pagination
+                page={reqPage}
+                pageSize={reqPageSize}
+                total={requests.length}
+                onPageChange={setReqPage}
+                onPageSizeChange={setReqPageSize}
+              />
             </div>
           )}
 
@@ -713,7 +733,7 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {allocations.map((a) => (
+                    {allocations.slice((allocPage - 1) * allocPageSize, allocPage * allocPageSize).map((a) => (
                       <tr
                         key={a.id}
                         className="hover:bg-slate-50 cursor-pointer"
@@ -747,12 +767,16 @@ export default function TimeOffPage({ initialTab }: TimeOffPageProps) {
                   </tbody>
                 </table>
               </div>
+
+              <Pagination
+                page={allocPage}
+                pageSize={allocPageSize}
+                total={allocations.length}
+                onPageChange={setAllocPage}
+                onPageSizeChange={setAllocPageSize}
+              />
             </div>
           )}
-
-
-
-
         </>
       )}
 

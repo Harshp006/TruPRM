@@ -8,6 +8,7 @@ import {
 import { fetchUsers, type User } from '../api/users';
 import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
 import AttendanceToggleWidget from '../components/AttendanceToggleWidget';
+import Pagination from '../components/Pagination';
 
 function KanbanCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
   const color = emp.color || '#6366f1';
@@ -188,6 +189,14 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [structureFilter, setStructureFilter] = useState('ALL');
   const [sortOption, setSortOption] = useState('NAME_ASC');
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, deptFilter, typeFilter, statusFilter, structureFilter, sortOption]);
 
   const load = async () => {
     setLoading(true);
@@ -890,7 +899,7 @@ export default function EmployeesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 font-medium">
-              {filteredEmployees.map(emp => (
+              {filteredEmployees.slice((page - 1) * pageSize, page * pageSize).map(emp => (
                 <tr key={emp.id} className="hover:bg-brand-50/40 transition cursor-pointer" onClick={() => openDetail(emp)}>
                   <td className="py-3.5 px-4 text-xs font-mono font-bold text-slate-500">#{emp.employeeNumber}</td>
                   <td className="py-3.5 px-4">
@@ -929,6 +938,14 @@ export default function EmployeesPage() {
               ))}
             </tbody>
           </table>
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredEmployees.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       ) : (
         /* Kanban View */

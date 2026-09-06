@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
+import Pagination from '../components/Pagination';
 
 interface Payrun {
   id: string;
@@ -80,6 +81,14 @@ const Payruns: React.FC = () => {
   const [stateFilter, setStateFilter] = useState('ALL');
   const [periodFilter, setPeriodFilter] = useState('ALL');
   const [sortOption, setSortOption] = useState('PERIOD_DESC');
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, stateFilter, periodFilter, sortOption]);
 
   // Modals & 2-Step Wizard State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -464,6 +473,11 @@ const Payruns: React.FC = () => {
     return result;
   }, [payruns, search, stateFilter, periodFilter, sortOption]);
 
+  const paginatedPayruns = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredPayruns.slice(start, start + pageSize);
+  }, [filteredPayruns, page, pageSize]);
+
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
     if (stateFilter !== 'ALL') chips.push({ label: 'Status', value: stateFilter === 'DONE' ? 'PAYSLIP GENERATED' : stateFilter, onClear: () => setStateFilter('ALL') });
@@ -620,7 +634,7 @@ const Payruns: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filteredPayruns.map((pr) => (
+              {paginatedPayruns.map((pr) => (
                 <tr
                   key={pr.id}
                   className={`transition ${
@@ -701,6 +715,14 @@ const Payruns: React.FC = () => {
           </table>
         )}
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={filteredPayruns.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Create Modal (2-Step Wizard) */}
       {isCreateOpen && isHRUser && (

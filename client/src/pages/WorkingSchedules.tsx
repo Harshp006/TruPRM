@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchSchedules, fetchSchedule, createSchedule, updateSchedule,
   type WorkingSchedule, type ScheduleLine
 } from '../api/hr';
+import Pagination from '../components/Pagination';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
@@ -213,10 +214,23 @@ export default function SchedulesPage() {
   };
 
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const filteredSchedules = schedules.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter(s =>
+      s.name.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [schedules, search]);
+
+  const paginatedSchedules = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredSchedules.slice(start, start + pageSize);
+  }, [filteredSchedules, page, pageSize]);
 
   return (
     <div>
@@ -268,34 +282,44 @@ export default function SchedulesPage() {
       {loading ? (
         <div className="text-slate-500">Loading schedules...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredSchedules.map(s => (
-            <div key={s.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-slate-800">{s.name}</h3>
-                  {s.flexibleHours && (
-                    <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded">Flexible</span>
-                  )}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedSchedules.map((s: WorkingSchedule) => (
+              <div key={s.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-slate-800">{s.name}</h3>
+                    {s.flexibleHours && (
+                      <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded">Flexible</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => openEdit(s)}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                  >
+                    {canEdit ? 'Edit' : 'View'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => openEdit(s)}
-                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                >
-                  {canEdit ? 'Edit' : 'View'}
-                </button>
+                <div className="flex items-center gap-4 text-sm text-slate-600">
+                  <span className="font-semibold text-lg text-slate-800">{s.hoursPerWeek}h</span>
+                  <span className="text-slate-400">per week</span>
+                </div>
+                <div className="mt-3 flex gap-3 text-xs text-slate-500">
+                  <span>{s._count?.scheduleLines ?? s.scheduleLines?.length ?? 0} active days</span>
+                  <span>·</span>
+                  <span>{s._count?.contracts ?? 0} linked contracts</span>
+                </div>
               </div>
-              <div className="flex items-center gap-4 text-sm text-slate-600">
-                <span className="font-semibold text-lg text-slate-800">{s.hoursPerWeek}h</span>
-                <span className="text-slate-400">per week</span>
-              </div>
-              <div className="mt-3 flex gap-3 text-xs text-slate-500">
-                <span>{s._count?.scheduleLines ?? s.scheduleLines?.length ?? 0} active days</span>
-                <span>·</span>
-                <span>{s._count?.contracts ?? 0} linked contracts</span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredSchedules.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

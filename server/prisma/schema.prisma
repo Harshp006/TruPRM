@@ -8,14 +8,15 @@ datasource db {
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  email              String    @unique
+  id                 String         @id @default(cuid())
+  email              String         @unique
   passwordHash       String
-  role               Role      @default(EMPLOYEE)
-  mustChangePassword Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  role               Role           @default(EMPLOYEE)
+  mustChangePassword Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
   employee           Employee?
+  notifications      Notification[]
 }
 
 model Employee {
@@ -306,6 +307,21 @@ model PayslipLine {
   payslip   Payslip            @relation(fields: [payslipId], references: [id], onDelete: Cascade)
 }
 
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  message         String
+  type            String   @default("INFO")
+  read            Boolean  @default(false)
+  relatedEntityId String?
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
+}
+
 enum Role {
   EMPLOYEE
   HR_MANAGER
@@ -323,7 +339,9 @@ enum ContractType {
 }
 
 enum ContractStatus {
+  DRAFT
   ACTIVE
+  FUTURE
   EXPIRED
   TERMINATED
 }

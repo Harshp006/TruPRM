@@ -7,6 +7,7 @@ import {
   calculateLeaveDays,
   logTimeOffLedger,
 } from '../services/timeoffService';
+import { createNotification, createRoleNotification } from '../services/notificationService';
 
 const router = Router();
 
@@ -468,6 +469,18 @@ router.post('/requests', async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    // Send notification to HR / Manager users
+    const empName = `${request.employee.firstName} ${request.employee.lastName}`;
+    await createRoleNotification(
+      ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN'],
+      {
+        title: 'New Leave Request',
+        message: `${empName} submitted a leave request for ${calculatedDays} day(s) (${timeOffType.name}).`,
+        type: 'TIME_OFF',
+        relatedEntityId: request.id,
+      }
+    );
+
     res.status(201).json(request);
   } catch (err: any) {
     console.error('Create timeoff request error:', err);
@@ -579,6 +592,21 @@ router.post(
         return [approvedRequest, updatedAllocation];
       });
 
+      // Send notification to employee
+      const empUser = await prisma.employee.findUnique({
+        where: { id: (updatedReq as any).employeeId },
+        select: { userId: true },
+      });
+      if (empUser?.userId) {
+        await createNotification({
+          userId: empUser.userId,
+          title: 'Leave Request Approved',
+          message: `Your leave request for ${(updatedReq as any).timeOffType?.name || 'Leave'} (${new Date((updatedReq as any).startDate).toISOString().slice(0, 10)} to ${new Date((updatedReq as any).endDate).toISOString().slice(0, 10)}) has been approved.`,
+          type: 'TIME_OFF',
+          relatedEntityId: (updatedReq as any).id,
+        });
+      }
+
       res.json({
         message: 'Leave request approved successfully',
         request: updatedReq,
@@ -663,6 +691,21 @@ router.post(
         return refusedReq;
       });
 
+      // Send notification to employee
+      const empUser = await prisma.employee.findUnique({
+        where: { id: result.employeeId },
+        select: { userId: true },
+      });
+      if (empUser?.userId) {
+        await createNotification({
+          userId: empUser.userId,
+          title: 'Leave Request Refused',
+          message: `Your leave request for ${result.timeOffType?.name || 'Leave'} was refused. Reason: ${refusalReason || 'Refused by HR/Manager'}`,
+          type: 'TIME_OFF',
+          relatedEntityId: result.id,
+        });
+      }
+
       res.json({
         message: 'Leave request refused',
         request: result,
@@ -727,6 +770,18 @@ router.post('/requests/:id/cancel', async (req: Request, res: Response): Promise
         timeOffType: true,
       },
     });
+
+    // Notify HR / Manager users
+    const empName = `${cancelledReq.employee.firstName} ${cancelledReq.employee.lastName}`;
+    await createRoleNotification(
+      ['ADMIN', 'HR_MANAGER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_ADMIN'],
+      {
+        title: 'Leave Request Cancelled',
+        message: `${empName} cancelled their pending leave request for ${cancelledReq.timeOffType.name}.`,
+        type: 'TIME_OFF',
+        relatedEntityId: cancelledReq.id,
+      }
+    );
 
     res.json({
       message: 'Leave request cancelled successfully',

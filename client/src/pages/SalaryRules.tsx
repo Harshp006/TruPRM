@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchSalaryRules, type SalaryRule } from '../api/payroll';
 import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
+import Pagination from '../components/Pagination';
 
 export default function SalaryRulesPage() {
   const { user } = useAuth();
@@ -12,6 +13,14 @@ export default function SalaryRulesPage() {
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [sortOption, setSortOption] = useState('SEQ_ASC');
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterCategory, sortOption]);
 
   const loadData = async () => {
     setLoading(true);
@@ -49,6 +58,11 @@ export default function SalaryRulesPage() {
 
     return result;
   }, [rules, search, filterCategory, sortOption]);
+
+  const paginatedFiltered = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
@@ -156,7 +170,7 @@ export default function SalaryRulesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((r) => (
+              {paginatedFiltered.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50/80 transition">
                   <td className="px-5 py-4 font-mono text-xs text-slate-400 font-bold">{r.sequence}</td>
                   <td className="px-5 py-4 text-sm font-semibold text-slate-800">{r.name}</td>
@@ -210,6 +224,14 @@ export default function SalaryRulesPage() {
           </table>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }

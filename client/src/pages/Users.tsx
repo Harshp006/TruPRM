@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { fetchUsers, createUser, updateUser, resetPassword, type User } from '../api/users';
 import { fetchEmployees, type Employee } from '../api/hr';
+import Pagination from '../components/Pagination';
 
 const ROLES = ['EMPLOYEE', 'HR_MANAGER', 'HR_PAYROLL_USER', 'HR_PAYROLL_MANAGER', 'HR_PAYROLL_ADMIN', 'ADMIN'] as const;
 
@@ -99,12 +100,25 @@ export default function UsersPage() {
   });
 
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const filteredUsers = users.filter(u =>
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase()) ||
-    (u.employee && `${u.employee.firstName} ${u.employee.lastName}`.toLowerCase().includes(search.toLowerCase()))
-  );
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u =>
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.role.toLowerCase().includes(search.toLowerCase()) ||
+      (u.employee && `${u.employee.firstName} ${u.employee.lastName}`.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [users, search]);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, page, pageSize]);
 
   return (
     <div className="space-y-4">
@@ -223,7 +237,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredUsers.map(u => (
+              {paginatedUsers.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm text-slate-800">{u.email}</td>
                   <td className="px-6 py-4">
@@ -261,6 +275,14 @@ export default function UsersPage() {
           </table>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={filteredUsers.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }

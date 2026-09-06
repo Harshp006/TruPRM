@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+import NotificationBell from './NotificationBell';
+
 const TopNavbar: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -46,10 +48,11 @@ const TopNavbar: React.FC = () => {
   return (
     <div style={{ backgroundColor: '#003366', color: 'white', borderBottom: '2px solid #000' }}>
       {/* Utility Bar */}
-      <div style={{ padding: '6px 10px', fontSize: '15px', borderBottom: '1px solid #336699', display: 'flex', justifyContent: 'space-between', backgroundColor: '#002244' }}>
+      <div style={{ padding: '6px 10px', fontSize: '15px', borderBottom: '1px solid #336699', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#002244' }}>
         <div>{portalTitle}</div>
-        <div style={{ display: 'flex', gap: '20px' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <span>User: {user.email} [{role}]</span>
+          <NotificationBell />
           <a href="#" onClick={(e) => { e.preventDefault(); navigate('/profile'); }} style={{ color: 'white', textDecoration: 'underline' }}>Profile</a>
           {role === 'ADMIN' && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/users'); }} style={{ color: 'white', textDecoration: 'underline' }}>Admin</a>}
           {['ADMIN', 'HR_MANAGER'].includes(role) && <a href="#" onClick={(e) => { e.preventDefault(); navigate('/working-schedules'); }} style={{ color: 'white', textDecoration: 'underline' }}>Schedules</a>}

@@ -17,6 +17,7 @@ import salaryRulesRouter from './routes/salary-rules';
 import payrunsRouter from './routes/payruns';
 import payslipsRouter from './routes/payslips';
 import dashboardRouter from './routes/dashboard';
+import notificationsRouter from './routes/notifications';
 import { authenticate } from './middleware/authenticate';
 import { authorize } from './middleware/authorize';
 
@@ -47,6 +48,7 @@ app.use('/api/salary-rules', salaryRulesRouter);
 app.use('/api/payruns', payrunsRouter);
 app.use('/api/payslips', payslipsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // ── Protected test routes ──────────────────────────────────────────────────
 // Any authenticated user

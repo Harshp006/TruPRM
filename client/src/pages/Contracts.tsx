@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  fetchContracts, createContract, updateContract, fetchEmployees, fetchSchedules,
-  type Contract, type Employee, type WorkingSchedule,
+  fetchContracts, createContract, updateContract, fetchEmployees, fetchSchedules, fetchSalaryStructures,
+  type Contract, type Employee, type WorkingSchedule, type SalaryStructure,
 } from '../api/hr';
+import Pagination from '../components/Pagination';
 
 const CONTRACT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN'];
-const CONTRACT_STATUSES = ['ACTIVE', 'EXPIRED', 'TERMINATED'];
+const CONTRACT_STATUSES = ['DRAFT', 'ACTIVE', 'FUTURE', 'EXPIRED', 'TERMINATED'];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'];
 
 const statusColor: Record<string, string> = {
+  DRAFT: 'bg-amber-100 text-amber-800 border-amber-300',
   ACTIVE: 'bg-green-100 text-green-800 border-green-300',
+  FUTURE: 'bg-blue-100 text-blue-800 border-blue-300',
   EXPIRED: 'bg-slate-100 text-slate-600 border-slate-200',
   TERMINATED: 'bg-red-100 text-red-700 border-red-300',
 };
@@ -20,6 +23,7 @@ function ContractForm({
   initial,
   employees,
   schedules,
+  structures = [],
   readOnly = false,
   onSave,
   onCancel,
@@ -27,6 +31,7 @@ function ContractForm({
   initial: Contract | null;
   employees: Employee[];
   schedules: WorkingSchedule[];
+  structures?: SalaryStructure[];
   readOnly?: boolean;
   onSave: (data: Partial<Contract>) => Promise<void>;
   onCancel: () => void;
@@ -57,106 +62,159 @@ function ContractForm({
     }
   };
 
+  const selectedEmp = employees.find(e => e.id === form.employeeId);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Employee *</label>
-          <select
-            disabled={readOnly}
-            required
-            value={form.employeeId || ''}
-            onChange={e => set('employeeId', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
-            <option value="">— Select Employee —</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} (#{emp.employeeNumber})</option>
-            ))}
-          </select>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* SECTION 1: CONTRACT INFORMATION */}
+      <div className="space-y-3 pb-3 border-b border-slate-200">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <span>📄</span> Contract Information
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Contract Type *</label>
+            <select
+              disabled={readOnly}
+              value={form.contractType || 'FULL_TIME'}
+              onChange={e => set('contractType', e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
+              {CONTRACT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Contract Status *</label>
+            <select
+              disabled={readOnly}
+              value={form.status || 'ACTIVE'}
+              onChange={e => set('status', e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
+              {CONTRACT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Start Date *</label>
+            <input
+              disabled={readOnly}
+              required
+              type="date"
+              value={form.startDate?.slice(0, 10) || ''}
+              onChange={e => set('startDate', e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">End Date</label>
+            <input
+              disabled={readOnly}
+              type="date"
+              value={form.endDate?.slice(0, 10) || ''}
+              onChange={e => set('endDate', e.target.value || null)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Contract Type</label>
-          <select
-            disabled={readOnly}
-            value={form.contractType || 'FULL_TIME'}
-            onChange={e => set('contractType', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
-            {CONTRACT_TYPES.map(t => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-          </select>
+      </div>
+
+      {/* SECTION 2: EMPLOYMENT & EMPLOYEE DETAILS */}
+      <div className="space-y-3 pb-3 border-b border-slate-200">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <span>👤</span> Employee Details
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Employee *</label>
+            <select
+              disabled={readOnly}
+              required
+              value={form.employeeId || ''}
+              onChange={e => set('employeeId', e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
+              <option value="">— Select Employee —</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} (#{emp.employeeNumber})</option>
+              ))}
+            </select>
+          </div>
+          {selectedEmp && (
+            <>
+              <div>
+                <span className="block text-[11px] font-bold text-slate-400 uppercase">Department</span>
+                <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedEmp.department || '—'}</p>
+              </div>
+              <div>
+                <span className="block text-[11px] font-bold text-slate-400 uppercase">Job Title</span>
+                <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedEmp.jobTitle || '—'}</p>
+              </div>
+            </>
+          )}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-          <select
-            disabled={readOnly}
-            value={form.status || 'ACTIVE'}
-            onChange={e => set('status', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
-            {CONTRACT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+      </div>
+
+      {/* SECTION 3: WORK SCHEDULE & PAYROLL */}
+      <div className="space-y-3 pb-3 border-b border-slate-200">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+          <span>⏱️</span> Work Schedule & Payroll Configuration
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Working Schedule</label>
+            <select
+              disabled={readOnly}
+              value={form.workingScheduleId || ''}
+              onChange={e => set('workingScheduleId', e.target.value || null)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
+              <option value="">— None (Default 40h/wk) —</option>
+              {schedules.map(s => (
+                <option key={s.id} value={s.id}>{s.name} ({s.hoursPerWeek}h/wk)</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-xs font-bold text-slate-700 mb-1">Salary Structure</label>
+            <select
+              disabled={readOnly}
+              value={form.salaryStructureId || ''}
+              onChange={e => set('salaryStructureId', e.target.value || null)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
+              <option value="">— Default Salary Structure —</option>
+              {structures.map(st => (
+                <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Wage Currency</label>
+            <select
+              disabled={readOnly}
+              value={form.wageCurrency || 'USD'}
+              onChange={e => set('wageCurrency', e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
+              {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Basic Wage / Salary *</label>
+            <input
+              disabled={readOnly}
+              required
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.wageAmount ?? ''}
+              onChange={e => set('wageAmount', e.target.value)}
+              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Start Date *</label>
-          <input
-            disabled={readOnly}
-            required
-            type="date"
-            value={form.startDate?.slice(0, 10) || ''}
-            onChange={e => set('startDate', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-          <input
-            disabled={readOnly}
-            type="date"
-            value={form.endDate?.slice(0, 10) || ''}
-            onChange={e => set('endDate', e.target.value || null)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
-          <select
-            disabled={readOnly}
-            value={form.wageCurrency || 'USD'}
-            onChange={e => set('wageCurrency', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
-            {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Wage Amount *</label>
-          <input
-            disabled={readOnly}
-            required
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.wageAmount ?? ''}
-            onChange={e => set('wageAmount', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
-        </div>
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Working Schedule</label>
-          <select
-            disabled={readOnly}
-            value={form.workingScheduleId || ''}
-            onChange={e => set('workingScheduleId', e.target.value || null)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100">
-            <option value="">— None (Default 40h) —</option>
-            {schedules.map(s => (
-              <option key={s.id} value={s.id}>{s.name} ({s.hoursPerWeek}h/wk)</option>
-            ))}
-          </select>
-        </div>
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-          <textarea
-            disabled={readOnly}
-            rows={2}
-            value={form.notes || ''}
-            onChange={e => set('notes', e.target.value)}
-            className="w-full border border-slate-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
-        </div>
+      </div>
+
+      {/* SECTION 4: NOTES */}
+      <div>
+        <label className="block text-xs font-bold text-slate-700 mb-1">Notes & Terms</label>
+        <textarea
+          disabled={readOnly}
+          rows={2}
+          value={form.notes || ''}
+          onChange={e => set('notes', e.target.value)}
+          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100" />
       </div>
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex gap-3 pt-2">
@@ -184,16 +242,32 @@ export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [schedules, setSchedules] = useState<WorkingSchedule[]>([]);
+  const [structures, setStructures] = useState<SalaryStructure[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editContract, setEditContract] = useState<Contract | null>(null);
 
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterEmployeeId]);
+
   const load = async () => {
     setLoading(true);
-    const [c, e, s] = await Promise.all([fetchContracts(), fetchEmployees(), fetchSchedules()]);
+    const [c, e, s, st] = await Promise.all([
+      fetchContracts(),
+      fetchEmployees(),
+      fetchSchedules(),
+      fetchSalaryStructures().catch(() => []),
+    ]);
     setContracts(c);
     setEmployees(e);
     setSchedules(s);
+    setStructures(st);
     setLoading(false);
   };
 
@@ -209,8 +283,6 @@ export default function ContractsPage() {
     setShowForm(false);
     setEditContract(null);
   };
-
-  const [search, setSearch] = useState('');
 
   let filteredContracts = filterEmployeeId
     ? contracts.filter(c => c.employeeId === filterEmployeeId)
@@ -240,7 +312,7 @@ export default function ContractsPage() {
         </div>
         {canEdit && (
           <button onClick={() => { setEditContract(null); setShowForm(true); }}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-bold text-sm shadow-xs">
             + New Contract
           </button>
         )}
@@ -262,7 +334,7 @@ export default function ContractsPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-2xl mx-4">
+          <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-2xl mx-4">
             <h2 className="text-lg font-bold mb-4 text-slate-800">
               {canEdit ? (editContract ? 'Edit Contract' : 'New Contract') : 'Contract Details'}
             </h2>
@@ -270,6 +342,7 @@ export default function ContractsPage() {
               initial={editContract}
               employees={employees}
               schedules={schedules}
+              structures={structures}
               readOnly={!canEdit}
               onSave={handleSave}
               onCancel={() => { setShowForm(false); setEditContract(null); }}
@@ -296,7 +369,7 @@ export default function ContractsPage() {
                   <td colSpan={8} className="px-6 py-8 text-center text-slate-400">No contracts found.</td>
                 </tr>
               ) : (
-                filteredContracts.map(c => (
+                filteredContracts.slice((page - 1) * pageSize, page * pageSize).map(c => (
                   <tr key={c.id}
                     className={`hover:bg-slate-50 ${c.status === 'ACTIVE' ? 'bg-green-50/50' : ''}`}>
                     <td className="px-6 py-4 text-sm font-medium text-slate-800">
@@ -305,7 +378,7 @@ export default function ContractsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{c.contractType.replace('_', ' ')}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColor[c.status]}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColor[c.status] || 'bg-slate-100 text-slate-600'}`}>
                         {c.status}
                       </span>
                     </td>
@@ -330,6 +403,14 @@ export default function ContractsPage() {
               )}
             </tbody>
           </table>
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredContracts.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
     </div>

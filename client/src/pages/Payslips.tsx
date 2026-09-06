@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SearchFilterBar, EmptyState, type FilterOption } from '../components/SearchFilterBar';
+import Pagination from '../components/Pagination';
 
 interface PayslipLine {
   id: string;
@@ -61,8 +62,13 @@ const Payslips: React.FC = () => {
   const [structureFilter, setStructureFilter] = useState('ALL');
   const [sortOption, setSortOption] = useState('PERIOD_NEWEST');
 
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-
+  useEffect(() => {
+    setPage(1);
+  }, [search, payrunFilter, deptFilter, structureFilter, sortOption]);
   const fetchPayslips = async () => {
     try {
       setLoading(true);
@@ -199,6 +205,11 @@ const Payslips: React.FC = () => {
         return new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime();
       });
   }, [payslips, search, payrunFilter, deptFilter, structureFilter, sortOption]);
+
+  const paginatedPayslips = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredPayslips.slice(start, start + pageSize);
+  }, [filteredPayslips, page, pageSize]);
 
   const handleClearAll = () => {
     setSearch('');
@@ -378,7 +389,7 @@ const Payslips: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredPayslips.map((p) => (
+              {paginatedPayslips.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 transition">
                   <td className="py-3.5 px-4">
                     <div className="font-medium text-slate-900">
@@ -396,7 +407,7 @@ const Payslips: React.FC = () => {
                     {new Date(p.periodEnd).toLocaleDateString()}
                   </td>
                   <td className="py-3.5 px-4 font-bold text-indigo-600">
-                    ₹{Number(p.netWage || 0).toLocaleString()}
+                    ₹{Number(p.netWage || 0).toLocaleString('en-IN')}
                   </td>
                   <td className="py-3.5 px-4">
                     <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full border border-emerald-200">
@@ -426,6 +437,14 @@ const Payslips: React.FC = () => {
           </table>
         </div>
       )}
+
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={filteredPayslips.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
     </div>
   );

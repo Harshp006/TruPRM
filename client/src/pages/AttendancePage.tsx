@@ -11,6 +11,7 @@ import {
 } from '../api/attendance';
 import { fetchEmployees, fetchEmployee, type Employee } from '../api/hr';
 import AttendanceToggleWidget from '../components/AttendanceToggleWidget';
+import Pagination from '../components/Pagination';
 
 export default function AttendancePage() {
   const { attendanceId, employeeId } = useParams<{ attendanceId?: string; employeeId?: string }>();
@@ -28,6 +29,14 @@ export default function AttendancePage() {
   const [period, setPeriod] = useState<'ALL' | 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [filterEmployeeId, setFilterEmployeeId] = useState<string>('');
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, period, statusFilter, filterEmployeeId, employeeId]);
 
   // Modals
   const [showManualModal, setShowManualModal] = useState(false);
@@ -483,7 +492,7 @@ export default function AttendancePage() {
                     </td>
                   </tr>
                 ) : (
-                  attendances.map((att) => {
+                  attendances.slice((page - 1) * pageSize, page * pageSize).map((att) => {
                     const empName = att.employee
                       ? `${att.employee.firstName} ${att.employee.lastName}`
                       : 'Unknown Employee';
@@ -578,6 +587,14 @@ export default function AttendancePage() {
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={attendances.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 

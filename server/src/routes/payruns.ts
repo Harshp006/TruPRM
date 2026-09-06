@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
 import { PayrunState, PayslipState, SalaryRuleCategory } from '@prisma/client';
 import { calculateSalary, calculateUnpaidLeaveDays } from '../services/payrollCalculator';
+import { createNotification } from '../services/notificationService';
 
 const router = Router();
 
@@ -170,6 +171,7 @@ async function performEmployeePrecheck(employeeId: string, periodStart: Date, pe
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     include: {
+      user: { select: { id: true } },
       contracts: {
         include: {
           salaryStructure: {
@@ -188,27 +190,33 @@ async function performEmployeePrecheck(employeeId: string, periodStart: Date, pe
     return { passed: false, errors: ['Employee profile record not found'] };
   }
 
-  // 1. Contract check: Find active contract
+  // 1. Contract check: Find active or expired contract
   const activeContract = employee.contracts.find((c) => c.status === 'ACTIVE');
+  const expiredContract = employee.contracts.find((c) => c.status === 'EXPIRED');
+
   if (!activeContract) {
-    errors.push('No active contract found');
+    if (expiredContract) {
+      errors.push('Contract expired');
+    } else {
+      errors.push('No active contract found');
+    }
   }
 
   // 2. Salary Structure check
   const structure = activeContract?.salaryStructure;
   if (activeContract && !structure) {
-    errors.push('No salary structure assigned');
+    errors.push('Salary structure missing');
   } else if (structure) {
     // 3. Salary Rules / Components check
     if (!structure.rules || structure.rules.length === 0) {
-      errors.push('Missing required salary rule/component');
+      errors.push('Missing required salary rules/components');
     }
   }
 
   // 4. Basic Salary check
   const wage = activeContract ? Number(activeContract.wageAmount || 0) : 0;
   if (activeContract && wage <= 0) {
-    errors.push('Missing basic salary (wage <= 0)');
+    errors.push('Basic salary missing');
   }
 
   // 5. Bank Details check
@@ -409,6 +417,17 @@ async function evaluatePayrunPrecheck(payrunId: string) {
           totalDeductions: 0,
         },
       });
+
+      // Send notification to employee
+      if (check.employee?.userId) {
+        await createNotification({
+          userId: check.employee.userId,
+          title: 'Payroll Validation Failed',
+          message: `Your payroll processing could not be completed for period (${payrun.periodStart.toISOString().slice(0, 10)} to ${payrun.periodEnd.toISOString().slice(0, 10)}). Reasons: ${check.errors.join(' | ')}.`,
+          type: 'PAYROLL',
+          relatedEntityId: payrunId,
+        });
+      }
     } else {
       await prisma.payslip.update({
         where: { id: payslip.id },
@@ -585,6 +604,17 @@ router.post(
             },
           });
         });
+
+        // Send notification to employee
+        if (payslip.employee?.userId) {
+          await createNotification({
+            userId: payslip.employee.userId,
+            title: 'Payslip Generated',
+            message: `Your payslip for period (${payrun.periodStart.toISOString().slice(0, 10)} to ${payrun.periodEnd.toISOString().slice(0, 10)}) is ready. Net Pay: ₹${calcResult.netSalary.toLocaleString()}.`,
+            type: 'PAYROLL',
+            relatedEntityId: payslip.id,
+          });
+        }
 
         results.push({
           employeeId: payslip.employeeId,

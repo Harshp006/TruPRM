@@ -8,6 +8,7 @@ import {
   type SalaryStructure,
 } from '../api/hr';
 import { SearchFilterBar, EmptyState } from '../components/SearchFilterBar';
+import Pagination from '../components/Pagination';
 
 export default function SalaryStructures() {
   const { user } = useAuth();
@@ -25,6 +26,14 @@ export default function SalaryStructures() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [effectiveFilter, setEffectiveFilter] = useState<string>('ALL');
   const [sortOption, setSortOption] = useState<string>('NAME_ASC');
+
+  // Pagination State
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, effectiveFilter, sortOption]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -190,6 +199,11 @@ export default function SalaryStructures() {
     return result;
   }, [structures, search, statusFilter, effectiveFilter, sortOption]);
 
+  const paginatedStructures = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredStructures.slice(start, start + pageSize);
+  }, [filteredStructures, page, pageSize]);
+
   const activeFilterChips = useMemo(() => {
     const chips: Array<{ label: string; value: string; onClear: () => void }> = [];
     if (statusFilter !== 'ALL') chips.push({ label: 'Status', value: statusFilter, onClear: () => setStatusFilter('ALL') });
@@ -330,7 +344,7 @@ export default function SalaryStructures() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredStructures.map((struct) => {
+                {paginatedStructures.map((struct) => {
                   const ruleCount = struct._count?.rules ?? struct.rules?.length ?? 0;
                   const empCount = struct._count?.contracts ?? 0;
                   const isActive = struct.status === 'ACTIVE';
@@ -407,6 +421,14 @@ export default function SalaryStructures() {
           </div>
         )}
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={filteredStructures.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Structure Edit Modal */}
       {isModalOpen && (
